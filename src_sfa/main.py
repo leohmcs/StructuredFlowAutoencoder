@@ -8,6 +8,9 @@ import os
 
 # Add project root to path so shared modules (utils, models, etc.) are importable
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Headless backend: the Tk backend crashes when figures are GC'd off the main thread
+import matplotlib
+matplotlib.use("Agg")
 import torch
 import numpy as np
 import copy
@@ -22,6 +25,16 @@ RUNNERS = {
     "pinwheel_mixture": ("runner_mixture", "PinWheelMixtureRunner"),
     "mnist_mixture": ("runner_mixture", "MNISTMixtureRunner"),
     "pendulum": ("runner_pendulum", "PENDULUMRunner"),
+    # Baselines (benchmarks/): same configs as the SFA runner of the dataset
+    "hvg_vae": ("benchmarks.vae", "HVGRunner"),
+    "hvg_latentfm": ("benchmarks.latentfm", "HVGRunner"),
+    "hvg_latentfm_vae": ("benchmarks.latentfm", "HVGVAERunner"),
+    "pinwheel_vae": ("benchmarks.vae", "PinWheelRunner"),
+    "pinwheel_latentfm": ("benchmarks.latentfm", "PinWheelRunner"),
+    "pinwheel_latentfm_vae": ("benchmarks.latentfm", "PinWheelVAERunner"),
+    "mnist_vae": ("benchmarks.vae", "MNISTRunner"),
+    "mnist_latentfm": ("benchmarks.latentfm", "MNISTRunner"),
+    "mnist_latentfm_vae": ("benchmarks.latentfm", "MNISTVAERunner"),
 }
 
 
