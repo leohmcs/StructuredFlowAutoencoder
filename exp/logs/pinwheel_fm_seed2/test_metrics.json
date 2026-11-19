@@ -1,0 +1,11 @@
+{
+  "runner": "fm_baseline",
+  "seed": 2,
+  "checkpoint": "exp\\logs\\pinwheel_fm_seed2\\fm.pt",
+  "batch_size": 500,
+  "n_batches": 20,
+  "test_emd": 0.3520658978198874,
+  "test_w1_raw": 0.9643623046129697,
+  "test_emd_ref": 0.34493150316040366,
+  "test_w1_raw_ref": 0.956547978527829
+}

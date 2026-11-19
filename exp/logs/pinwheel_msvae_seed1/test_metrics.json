@@ -1,0 +1,12 @@
+{
+  "runner": "mixture_svae",
+  "seed": 1,
+  "checkpoint": "exp\\logs\\pinwheel_msvae_seed1\\msvae_best.pt (epoch 262)",
+  "batch_size": 2500,
+  "n_batches": 1,
+  "test_emd": 0.4279230300633672,
+  "test_w1_raw": 1.2532377797698349,
+  "test_emd_ref": 0.13664595407159807,
+  "test_w1_raw_ref": 0.40020179670004086,
+  "test_emd_decoder_mean": 0.47987931828865915
+}
