@@ -1,0 +1,13 @@
+Model,Source,NMI (higher is better),ARI (higher is better),Vendi (higher is better),softNMI (higher is better),log p(z|x) (higher is better)
+VAE,paper,0.039,0.017,63.286,,-85.448
+VAE,reproduced,0.419,0.310,10.186,,-25.337
+SFA,paper,0.490,0.356,25.589,,793.262
+SFA,reproduced,0.508,0.363,17.027,,723.329
+w/Deterministic,paper,0.501,0.379,10.189,,–
+w/Deterministic,reproduced,0.495,0.367,16.800,,–
+w/CNF Posterior,paper,0.485,0.355,23.166,,356.141
+w/CNF Posterior,reproduced,0.146,0.093,1.508,,-42.307
+Mixture-SVAE,paper,0.161,0.072,,0.698,
+Mixture-SVAE,reproduced,0.171,0.066,,0.673,
+Mixture-SFA,paper,0.489,0.332,,0.728,
+Mixture-SFA,reproduced,0.450,0.330,,0.689,

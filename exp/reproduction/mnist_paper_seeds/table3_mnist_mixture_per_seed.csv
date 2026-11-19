@@ -1,0 +1,13 @@
+Model,seed,checkpoint epoch,log p(x|z) (higher is better),log p(z|x) (higher is better),SSIM (higher is better),softNMI (higher is better),NMI (higher is better),ARI (higher is better),Vendi x (higher is better),NMI (train set) (higher is better),ARI (train set) (higher is better)
+Mixture-SFA,123,199 (best),-1295.583,1087.869,0.050,0.632,0.522,0.376,18.193,0.512,0.382
+Mixture-SFA,124,168 (best),-1259.308,1087.870,0.059,0.649,0.589,0.454,18.427,0.567,0.447
+Mixture-SFA,125,173 (best),-1288.654,1087.878,0.054,0.622,0.475,0.345,16.135,0.450,0.330
+Mixture-SVAE,123,113 (best),290.878,-23.838,0.513,0.800,0.000,0.000,35.017,0.000,0.000
+Mixture-SVAE,124,102 (best),198.175,-28.580,0.501,0.606,0.180,0.055,35.979,0.181,0.062
+Mixture-SVAE,125,127 (best),462.543,-21.950,0.521,0.610,0.150,0.047,34.749,0.171,0.066
+Mixture-SFA [mixture_alpha0: no batch-entropy term (alpha_mixture 0) instead of 0.01],123,199 (best),-1300.179,1087.803,0.050,0.775,0.143,0.021,17.998,0.145,0.022
+Mixture-SFA [mixture_alpha0: no batch-entropy term (alpha_mixture 0) instead of 0.01],124,168 (best),-1279.380,1087.869,0.057,0.752,0.316,0.092,18.460,0.288,0.082
+Mixture-SFA [mixture_alpha0: no batch-entropy term (alpha_mixture 0) instead of 0.01],125,173 (best),-1296.590,1087.693,0.055,0.777,0.156,0.020,16.399,0.167,0.023
+Mixture-SFA [mixture_logits: z conditioned on the sorted logits (repository) instead of the xi sample],123,199 (best),-1254.988,1087.869,0.058,0.594,0.327,0.199,16.099,0.338,0.215
+Mixture-SFA [mixture_logits: z conditioned on the sorted logits (repository) instead of the xi sample],124,168 (best),-1244.820,1087.883,0.061,0.587,0.292,0.159,17.827,0.277,0.157
+Mixture-SFA [mixture_logits: z conditioned on the sorted logits (repository) instead of the xi sample],125,173 (best),-1245.137,1087.883,0.058,0.610,0.405,0.238,17.452,0.361,0.225

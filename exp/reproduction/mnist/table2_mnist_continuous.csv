@@ -1,0 +1,15 @@
+Model,Source,log p(x|z) (higher is better),log p(z|x) (higher is better),Vendi (higher is better),SSIM (higher is better),NMI (OOD) (higher is better),ARI (OOD) (higher is better),Vendi x (higher is better),SSIM (code protocol) (higher is better),checkpoint epoch
+VAE,paper,-453.648,-85.448,63.286,0.419,0.039 (0.033),0.017 (0.012),,,
+VAE,reproduced,not evaluated,,,,,,,,
+VampVAE,paper,-584.845,155.820,1.140,0.866,0.006 (0.006),0.000 (0.000),,,
+VampVAE,reproduced,not in repo,not in repo,not in repo,not in repo,not in repo,not in repo,,,
+Latent FM,paper,–,–,8.380,0.980,0.488 (0.392),0.381 (0.194),,,
+Latent FM,reproduced,not in repo,not in repo,not in repo,not in repo,not in repo,not in repo,,,
+Latent FM (VAE),paper,-910.925,-11.192,19.631,0.697,0.309 (0.152),0.205 (0.073),,,
+Latent FM (VAE),reproduced,not in repo,not in repo,not in repo,not in repo,not in repo,not in repo,,,
+SFA,paper,-916.901,793.262,25.589,0.716,0.490 (0.394),0.356 (0.208),,,
+SFA,reproduced,-727.015,164.438,4.481,0.225,0.173 (0.147),0.091 (0.052),29.648,0.214,185 (best)
+w/Deterministic,paper,-858.385,–,10.189,0.732,0.501 (0.333),0.379 (0.155),,,
+w/Deterministic,reproduced,not evaluated,,,,,,,,
+w/CNF Posterior,paper,-907.998,356.141,23.166,0.654,0.485 (0.325),0.355 (0.118),,,
+w/CNF Posterior,reproduced,-866.063,149.049,1.277,0.221,0.122 (0.170),0.056 (0.066),21.987,0.223,191 (best)

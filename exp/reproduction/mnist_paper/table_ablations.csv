@@ -1,0 +1,11 @@
+Model,Run,Setting changed,SSIM (higher is better),NMI (higher is better),ARI (higher is better),softNMI (higher is better),Vendi (higher is better),log p(z|x) (higher is better),log p(x|z) (higher is better),checkpoint epoch
+SFA,sfa,none (paper config),0.536,0.549,0.403,–,16.618,734.433,-861.564,197 (best)
+SFA,sfa_floor1e5,posterior std floor 1e-5 (published code) instead of 1e-6,0.536,0.552,0.405,–,16.636,628.057,-859.283,197 (best)
+SFA,sfa_alpha,alpha 0.01 (repository's z^2 penalty) instead of 0,0.272,0.472,0.300,–,34.977,561.235,-941.201,197 (best)
+SFA,sfa_w800,width 800 (repository; 3.35M parameters) instead of 618 (2.40M),0.541,0.556,0.389,–,16.132,719.329,-841.683,198 (best)
+SFA,sfa_legacy,"training loop as published (flat lr 5e-4, no effective clipping)",0.487,0.537,0.400,–,18.726,613.490,-831.050,197 (best)
+w/CNF Posterior,sfa_cnf,none (paper config),0.160,0.175,0.095,–,1.488,-40.084,-1199.381,187 (best)
+w/CNF Posterior,sfa_cnf_alpha,alpha 0.01 (repository's z^2 penalty) instead of 0,0.217,0.079,0.027,–,1.644,205.220,-878.285,187 (best)
+Mixture-SFA,mixture,none (paper config),0.050,0.522,0.376,0.632,–,1087.869,-1295.583,199 (best)
+Mixture-SFA,mixture_alpha0,no batch-entropy term (alpha_mixture 0) instead of 0.01,0.050,0.143,0.021,0.775,–,1087.803,-1300.179,199 (best)
+Mixture-SFA,mixture_logits,z conditioned on the sorted logits (repository) instead of the xi sample,0.058,0.327,0.199,0.594,–,1087.869,-1254.988,199 (best)

@@ -1,0 +1,5 @@
+Model,Source,log p(x|z) (higher is better),log p(z|x) (higher is better),SSIM (higher is better),softNMI (higher is better),NMI (higher is better),ARI (higher is better),Vendi x (higher is better),checkpoint epoch
+Mixture-SVAE,paper,-1133,0.667,0.634,0.698,0.161,0.072,,
+Mixture-SVAE,reproduced,462.543,-21.950,0.521,0.610,0.150,0.047,34.749,127 (best)
+Mixture-SFA,paper,-906,725,0.779,0.728,0.489,0.332,,
+Mixture-SFA,reproduced,-1288.654,1087.878,0.054,0.622,0.475,0.345,16.135,173 (best)
