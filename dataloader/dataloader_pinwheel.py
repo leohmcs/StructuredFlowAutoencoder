@@ -10,6 +10,22 @@ import matplotlib.pyplot as plt
 # torch.set_default_dtype(torch.float64)
 
 
+def make_pinwheel(num_classes, num_per_class, radial_std=0.15, tangential_std=0.05, rate=0.25):
+	"""Draw pinwheel samples. Returns an array of shape (num_classes*num_per_class, 3): [x1, x2, label]."""
+	rads = np.linspace(0, 2*np.pi, num_classes, endpoint=False)
+
+	features = npr.randn(num_classes*num_per_class, 2) * np.array([radial_std, tangential_std])
+	features[:,0] += 1.
+	labels = np.repeat(np.arange(num_classes), num_per_class)
+
+	angles = rads[labels] + rate * np.exp(features[:,0])
+	rotations = np.stack([np.cos(angles), -np.sin(angles), np.sin(angles), np.cos(angles)])
+	rotations = np.reshape(rotations.T, (-1, 2, 2))
+
+	data = 10*np.einsum('ti,tij->tj', features, rotations)
+	return np.concatenate([data, labels[:,np.newaxis]], axis=1)
+
+
 class PINWHEEL(Dataset):
 	def __init__(self, 
 		num_per_class, dat_dir, gen=False, plot=False,
@@ -23,6 +39,7 @@ class PINWHEEL(Dataset):
 		self.length = self.num_classes * self.num_per_class
 
 		self.dat_dir = dat_dir
+		os.makedirs(self.dat_dir, exist_ok=True)
 		file_path = os.path.join(self.dat_dir, "pinwheel.csv")
 		# if generate new data
 		if gen:
@@ -44,20 +61,8 @@ class PINWHEEL(Dataset):
 
 
 	def sample(self):
-	    rads = np.linspace(0, 2*np.pi, self.num_classes, endpoint=False)
-
-	    features = npr.randn(self.num_classes*self.num_per_class, 2) \
-	        * np.array([self.radial_std, self.tangential_std])
-	    features[:,0] += 1.
-	    labels = np.repeat(np.arange(self.num_classes), self.num_per_class)
-
-	    angles = rads[labels] + self.rate * np.exp(features[:,0])
-	    rotations = np.stack([np.cos(angles), -np.sin(angles), np.sin(angles), np.cos(angles)])
-	    rotations = np.reshape(rotations.T, (-1, 2, 2))
-
-	    data = 10*np.einsum('ti,tij->tj', features, rotations)
-	    return np.concatenate([data, labels[:,np.newaxis]], axis=1)
-
+	    return make_pinwheel(self.num_classes, self.num_per_class,
+	                         self.radial_std, self.tangential_std, self.rate)
 
 	def __len__(self):
 	    return self.length

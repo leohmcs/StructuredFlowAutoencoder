@@ -33,7 +33,7 @@ model:
   v: 0.4
   ngf: 200 # 120 # 100
   fixz: true
-  cnn: true
+  cnn: false # was true; pinwheel is 2-D tabular data, and true sends --sample down the MNIST test branch
 
 optim:
   weight_decay: 0.0001 # 0.001
