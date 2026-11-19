@@ -40,7 +40,7 @@ inv_transform = transforms.Compose([
     SigmoidTrans(),
 ])
 
-def get_cifar(num_classes, dat_dir, num_per_class, num_per_class_test, download=False):
+def get_cifar(num_classes, dat_dir, num_per_class, num_per_class_test, download=True):
     
     train_dataset = CIFAR10(
                         root = dat_dir,

@@ -22,6 +22,9 @@ RUNNERS = {
     "pinwheel_mixture": ("runner_mixture", "PinWheelMixtureRunner"),
     "mnist_mixture": ("runner_mixture", "MNISTMixtureRunner"),
     "pendulum": ("runner_pendulum", "PENDULUMRunner"),
+    # baselines (not part of the authors' code)
+    "mnist_vae": ("baselines.vae", "VAERunner"),
+    "mnist_mixture_svae": ("baselines.mixture_svae", "MixtureSVAERunner"),
 }
 
 

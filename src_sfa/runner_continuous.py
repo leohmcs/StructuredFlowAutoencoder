@@ -79,9 +79,14 @@ class LightningModule(pl.LightningModule):
 		opt.zero_grad()
 
 		self.manual_backward(loss)
-		opt.step()
-
-		self.clip_gradients(opt, gradient_clip_val=self.config.training.clipval, gradient_clip_algorithm="norm")
+		if getattr(self.config.training, 'legacy_loop', False):
+			# training loop as published for MNIST: clipping after the update has no effect
+			opt.step()
+			self.clip_gradients(opt, gradient_clip_val=self.config.training.clipval, gradient_clip_algorithm="norm")
+		else:
+			# clip before the update (was after opt.step(), where it had no effect)
+			self.clip_gradients(opt, gradient_clip_val=self.config.training.clipval, gradient_clip_algorithm="norm")
+			opt.step()
 
 		return loss
 
@@ -97,6 +102,16 @@ class LightningModule(pl.LightningModule):
 
 		return val_loss
 
+	def on_train_start(self):
+		# Resuming: Lightning restores the WarmUpScheduler wrapper but not the cosine scheduler it
+		# wraps, which would restart at step 0 and hold the lr almost constant. Put it back on the
+		# step it had reached. No effect on a fresh run (the wrapper is at step 0, warmup not done).
+		sch = self.lr_schedulers()
+		inner = getattr(sch, 'lr_scheduler', None)
+		if inner is not None and sch.warmup_done:
+			inner.last_epoch = sch.last_step // sch.len_loader - sch.warmup_steps // sch.len_loader
+			inner._step_count = inner.last_epoch + 1
+
 	def on_train_epoch_end(self):
 		# manual scheduler step
 		sch = self.lr_schedulers()
@@ -110,7 +125,7 @@ class LightningModule(pl.LightningModule):
 			y = self.last_validation_batch["y"]
 
 			if self.current_epoch % self.config.training.snapshot_freq == 0:
-				if self.args.config == "mnist.yml":
+				if self.config.model.cnn:  # image data (was: config file named "mnist.yml")
 					self.generate_img(X, y, latent=True)
 				else:
 					# self.generate()
@@ -143,7 +158,10 @@ class LightningModule(pl.LightningModule):
 			lr_scheduler=cosineScheduler,
 			warmup_steps=5,
 			warmup_start_lr=0.00001,
-			len_loader=self.config.data.samplesize//self.config.training.batch_size
+			# step() is called once per epoch from on_train_epoch_end, so len_loader must be 1 for the
+			# cosine decay to act. legacy_loop restores the published value, which keeps lr ~constant.
+			len_loader=(self.config.data.samplesize//self.config.training.batch_size
+				if getattr(self.config.training, 'legacy_loop', False) else 1)
 			)
 
 		return [optimizer], [
@@ -299,7 +317,7 @@ class LightningModule(pl.LightningModule):
 		if self.config.flow.fix_z:
 			z0 = self.rt.sample(x0)
 		else:
-			z1 = self.priorz.sample((len(x),)).to(self.config.device)
+			z1 = self.priorz.sample((len(x0),)).to(self.config.device)
 			z0 = self.rt.decode(z1, x0)
 
 		return x0
@@ -429,7 +447,10 @@ class LightningModule(pl.LightningModule):
 			z0 = self.rt.decode(z1, x.flatten(start_dim=1))
 
 		# compute posterior entropy
-		post_ent = - self.rt.log_prob(x.flatten(start_dim=1), z0).mean()
+		if self.config.flow.fix_z:
+			post_ent = - self.rt.log_prob(x.flatten(start_dim=1), z0).mean()
+		else:
+			post_ent = - self.rt.log_prob(z0, x.flatten(start_dim=1), 0, self.priorz).mean()
 
 		# compute posterior of ood samples
 		# compute the entropy of posterior given train samples
@@ -437,8 +458,11 @@ class LightningModule(pl.LightningModule):
 		if self.config.flow.fix_z:
 			z0_ood = self.rt.sample(x_ood.flatten(start_dim=1))
 		else:
-			z0_ood = self.rt.decode(z1, x_ood.flatten(start_dim=1))
-		post_ent_ood = - self.rt.log_prob(x_ood.flatten(start_dim=1), z0_ood).mean()
+			z0_ood = self.rt.decode(z1_ood, x_ood.flatten(start_dim=1))
+		if self.config.flow.fix_z:
+			post_ent_ood = - self.rt.log_prob(x_ood.flatten(start_dim=1), z0_ood).mean()
+		else:
+			post_ent_ood = - self.rt.log_prob(z0_ood, x_ood.flatten(start_dim=1), 0, self.priorz).mean()
 
 		# sba difference
 		eps= torch.abs(post_ent - post_ent_ood)
@@ -552,7 +576,7 @@ class PinWheelRunner():
 		self.priorz = Normal(torch.zeros(self.d), torch.ones(self.d))
 
 		# Define the ModelCheckpoint callback
-		checkpoint_callback = ModelCheckpoint(
+		self.checkpoint_callback = checkpoint_callback = ModelCheckpoint(
 		    monitor='val_loss',  # Metric to monitor
 		    dirpath=self.args.log_path,  # Directory where checkpoints will be saved
 		    filename='best-checkpoint-{epoch:02d}-{val_loss:.2f}',  # Filename convention
@@ -594,10 +618,7 @@ class PinWheelRunner():
 		if not self.args.resume_training:
 			ckpt_path = None
 		else:
-			_ckpt_path = os.path.join(self.args.tb_path, "lightning_logs/version_0/checkpoints")
-			ckpt_files = [f for f in 
-					os.listdir(_ckpt_path) if f.endswith('.ckpt')]
-			ckpt_path = os.path.join(_ckpt_path, ckpt_files[-1])
+			ckpt_path = find_resume_checkpoint(self.args.log_path, self.checkpoint_callback)
 
 		self.trainer.fit(
 			model, train_dataloader, val_dataloader, ckpt_path=ckpt_path
@@ -611,10 +632,7 @@ class PinWheelRunner():
 
 		model = LightningModule(self.vt, self.rt, self.priorz, self.config, self.args)
 
-		_ckpt_path = os.path.join(self.args.tb_path, "lightning_logs/version_0/checkpoints")
-		ckpt_files = [f for f in 
-		os.listdir(_ckpt_path) if f.endswith('.ckpt')]
-		ckpt_path = os.path.join(_ckpt_path, ckpt_files[-1])
+		ckpt_path = find_checkpoint(self.args.log_path, self.checkpoint_callback)
 
 		self.trainer.test(model, dataloaders=test_dataloader, ckpt_path=ckpt_path)
 
@@ -635,7 +653,7 @@ class MNISTRunner():
 			self.p, self.d, model=vt_type, is_image=True, in_ch=self.c,
 			freqs=self.config.model.freqs,
 			hidden_features=[self.config.flow.ngf]*3,
-			fct=nn.SiLU(),
+			fct=get_activation(getattr(self.config.model, 'fct', 'silu')),
 			# fct=nn.Tanh(),
 			# layer_norm=True,
 			# fct=nn.ReLU(),
@@ -648,6 +666,8 @@ class MNISTRunner():
 				self.c*self.p**2, self.d, hidden_features=[self.config.flow.ngf]*0,
 				freqs=self.config.flow.freqs,
 				fct=nn.Tanh(),
+				deterministic=getattr(self.config.flow, 'deterministic', False),
+				min_std=getattr(self.config.flow, 'min_std', 1e-5),
 				).to(self.config.device)
 		else:
 			self.rt = CNF(
@@ -663,6 +683,7 @@ class MNISTRunner():
 			dirpath=self.args.log_path,  # Directory where checkpoints will be saved
 			filename='best-checkpoint-{epoch:02d}-{val_loss:.2f}',  # Filename convention
 			save_top_k=1,  # Only save the best model based on val_loss
+			save_last=True,  # also keep the final (converged) weights as last.ckpt
 			mode='min'  # Minimize the validation loss
 		)
 		# Initialize the Trainer
@@ -702,7 +723,7 @@ class MNISTRunner():
 		if not self.args.resume_training:
 			ckpt_path = None
 		else:
-			ckpt_path = self.checkpoint_callback.best_chechpoint_callback
+			ckpt_path = find_resume_checkpoint(self.args.log_path, self.checkpoint_callback)
 
 		self.trainer.fit(model, train_dataloader, val_dataloader, ckpt_path=ckpt_path)
 
@@ -722,7 +743,7 @@ class MNISTRunner():
 		model = LightningModule(self.vt, self.rt, self.priorz, self.config, self.args)
 
 		
-		ckpt_path = self.checkpoint_callback.best_chechpoint_callback
+		ckpt_path = find_checkpoint(self.args.log_path, self.checkpoint_callback)
 
 		self.trainer.test(model, dataloaders=dataloader, ckpt_path=ckpt_path)
 
@@ -734,7 +755,7 @@ class MNISTRunner():
 		                    num_workers=self.config.data.num_workers, sampler=sampler)
 		model = LightningModule(self.vt, self.rt, self.priorz, self.config, self.args)
 
-		ckpt_path = self.checkpoint_callback.best_chechpoint_callback
+		ckpt_path = find_checkpoint(self.args.log_path, self.checkpoint_callback)
 
 		self.trainer.test(model, dataloaders=dataloader, ckpt_path=ckpt_path)
 
@@ -815,7 +836,7 @@ class HVGRunner():
 		if not self.args.resume_training:
 			ckpt_path = None
 		else:
-			ckpt_path = self.checkpoint_callback.best_model_path
+			ckpt_path = find_resume_checkpoint(self.args.log_path, self.checkpoint_callback)
 
 		self.trainer.fit(
 			model, train_dataloader, val_dataloader, ckpt_path=ckpt_path
@@ -826,6 +847,6 @@ class HVGRunner():
 	    	dat_dir="data", batch_size=1226, num_workers=self.config.data.num_workers)
 		model = LightningModule(self.vt, self.rt, self.priorz, self.config, self.args)
 
-		ckpt_path = self.checkpoint_callback.best_model_path
+		ckpt_path = find_checkpoint(self.args.log_path, self.checkpoint_callback)
 
 		self.trainer.test(model, dataloaders=val_dataloader, ckpt_path=ckpt_path)

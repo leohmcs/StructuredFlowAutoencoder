@@ -342,7 +342,7 @@ class PinWheelMixtureRunner():
         if not self.args.resume_training:
             ckpt_path = None
         else:
-            ckpt_path = self.checkpoint_callback.best_model_path
+            ckpt_path = find_checkpoint(self.args.log_path, self.checkpoint_callback)
 
         self.trainer.fit(model, train_dataloader, val_dataloader, ckpt_path=ckpt_path)
 
@@ -354,9 +354,10 @@ class PinWheelMixtureRunner():
 
         model = PinWheelMixtureLightningModule(self.vt, self.Rt, self.rt, self.priorz, self.config, self.args)
 
-        ckpt_path = self.checkpoint_callback.best_model_path
+        ckpt_path = find_checkpoint(self.args.log_path, self.checkpoint_callback)
 
         # When loading:
+        checkpoint = torch.load(ckpt_path, map_location=self.config.device)
         state_dict = checkpoint['state_dict']
         remapped_state_dict = remap_checkpoint_state_dict(state_dict)
         # Try loading with the remapped state dict
@@ -388,6 +389,13 @@ class FlowMatchingLightningModule(pl.LightningModule):
         self.temp_max = self.config.flow.beta
         self.temp_min = 0.5
         self.beta = self.temp_max
+        # Paper Eq. 8 / App. B.3: z is drawn from q(z | x, xi) with xi ~ Gumbel-Softmax.
+        # The original code conditions on the (sorted) logits instead; default keeps that.
+        self.condition_on_xi = getattr(self.config.flow, 'condition_on_xi', False)
+
+    def _rt_context(self, logits, xi):
+        """What rt is conditioned on: the Gumbel-Softmax sample xi (paper) or the logits (original)."""
+        return xi if self.condition_on_xi else logits
 
     def setup(self, stage=None):
         # Reinitialize the distributions using the buffers now on the correct device
@@ -402,7 +410,10 @@ class FlowMatchingLightningModule(pl.LightningModule):
         self.flow_matching_loss = FlowMatchingLossMixture(
                                 vt=self.vt, Rt=self.Rt, rt=self.rt, 
                                 priorpi=self.priorpi, priorz=self.priorz, priory=self.priory, 
-                                k=self.k, alpha=self.config.training.alpha, beta=self.beta)
+                                # alpha_mixture, if set, is the weight of the component-usage
+                                # (batch-entropy) regulariser for the mixture model only
+                                k=self.k, alpha=getattr(self.config.training, 'alpha_mixture', self.config.training.alpha),
+                                beta=self.beta, condition_on_xi=self.condition_on_xi)
        
 
     # def forward(self, pi0, n):
@@ -461,9 +472,14 @@ class FlowMatchingLightningModule(pl.LightningModule):
         opt.zero_grad()
 
         self.manual_backward(loss)
-        opt.step()
-
-        self.clip_gradients(opt, gradient_clip_val=self.config.training.clipval, gradient_clip_algorithm="norm")
+        if getattr(self.config.training, 'legacy_loop', False):
+            # training loop as published for MNIST: clipping after the update has no effect
+            opt.step()
+            self.clip_gradients(opt, gradient_clip_val=self.config.training.clipval, gradient_clip_algorithm="norm")
+        else:
+            # clip before the update (was after opt.step(), where it had no effect)
+            self.clip_gradients(opt, gradient_clip_val=self.config.training.clipval, gradient_clip_algorithm="norm")
+            opt.step()
 
         return loss
 
@@ -505,7 +521,10 @@ class FlowMatchingLightningModule(pl.LightningModule):
             lr_scheduler=cosineScheduler,
             warmup_steps=self.config.training.n_epochs // 10,
             warmup_start_lr=0.00005,
-            len_loader=self.config.data.samplesize//self.config.training.batch_size
+            # step() is called once per epoch from on_train_epoch_end; legacy_loop restores the
+            # published value, which keeps lr ~constant
+            len_loader=(self.config.data.samplesize//self.config.training.batch_size
+                        if getattr(self.config.training, 'legacy_loop', False) else 1)
             )
 
         return [optimizer], [
@@ -537,9 +556,9 @@ class FlowMatchingLightningModule(pl.LightningModule):
                 self.generate(X, y)
 
                  # if self.current_epoch % self.config.training.snapshot_freq == 0:
-                z0, logits0, pi0 = self.sample(X)
+                z0, logits0, pi0, ctx0 = self.sample_with_context(X)
                 # evaluate likelihood
-                log_post_z = self.rt.log_prob(logits0, X.flatten(start_dim=1), z0).mean()
+                log_post_z = self.rt.log_prob(ctx0, X.flatten(start_dim=1), z0).mean()
                 # print("log_post_z", log_post_z)
                 log_lik = self.vt.log_prob(X, z0, 0., self.priory).mean()
                 self.log('val_log_post_z', log_post_z, on_step=False, on_epoch=True, sync_dist=True, logger=True)
@@ -553,6 +572,11 @@ class FlowMatchingLightningModule(pl.LightningModule):
         self.last_validation_batch = None
 
     def sample(self, x):
+        z0, logits0, pi0, _ = self.sample_with_context(x)
+        return z0, logits0, pi0
+
+    def sample_with_context(self, x):
+        """Like sample(), also returning what rt was conditioned on (needed for rt.log_prob)."""
         if self.config.flow.cnn:
             _x = x
         else:
@@ -564,9 +588,10 @@ class FlowMatchingLightningModule(pl.LightningModule):
         _, z1idx = self.Rt.rsample(None, t0, logits=logits1)
         logits0, z0idx = self.Rt.rsample(_x, t0)
         pi0 = F.softmax(logits0/self.beta, dim=-1)
-        z0 = self.rt.sample(logits0, _x).to(self.device)
+        ctx0 = self._rt_context(logits0, z0idx)
+        z0 = self.rt.sample(ctx0, _x).to(self.device)
 
-        return z0, logits0, pi0/pi0.sum(-1, keepdims=True)
+        return z0, logits0, pi0/pi0.sum(-1, keepdims=True), ctx0
 
 
 
@@ -607,7 +632,7 @@ class FlowMatchingLightningModule(pl.LightningModule):
                     _, z1idx = self.Rt.rsample(None, t0, logits=logits1)
                     logits0, z0idx = self.Rt.rsample(_y0, t0)
                     pi0 = softmax(logits0/self.beta, dim=-1)
-                    z0 = self.rt.sample(logits0, _y0)
+                    z0 = self.rt.sample(self._rt_context(logits0, z0idx), _y0)
 
                     y1_new = self.priory.sample((m-1,)).to(self.device)
                     y0_new = self.vt.decode(y1_new, z0)
@@ -788,7 +813,7 @@ class FlowMatchingLightningModule(pl.LightningModule):
             _, z1idx = self.Rt.rsample(None, t0, logits=logits1)
             logits0, z0idx = self.Rt.rsample(xk, t0)
             pi0 = F.softmax(logits0/self.beta, dim=-1)
-            z0 = self.rt.sample(logits0, xk)
+            z0 = self.rt.sample(self._rt_context(logits0, z0idx), xk)
 
             y1_new = self.priory.sample((len(xk),)).to(self.device)
             y0_new = self.vt.decode(y1_new, z0)
@@ -853,7 +878,7 @@ class FlowMatchingLightningModule(pl.LightningModule):
             z1 = self.priorz.rsample(z1idx, (1,)).to(self.device)
             logits0, z0idx = self.Rt.rsample(_xk, t0)
             pi0 = softmax(logits0/self.beta, dim=-1)
-            z0 = self.rt.sample(logits0, _xk.flatten(start_dim=1))
+            z0 = self.rt.sample(self._rt_context(logits0, z0idx), _xk.flatten(start_dim=1))
 
             x1_new = self.priory.sample((n,)).to(self.device)
             x0_new = self.vt.decode(x1_new, z0)
@@ -915,7 +940,7 @@ class MNISTMixtureRunner():
                 self.p, self.d, model="mlp", is_image=True, in_ch=self.c,
                 freqs=self.config.model.freqs,
                 hidden_features=[self.config.flow.ngf]*3,
-                fct=nn.SiLU(),
+                fct=get_activation(getattr(self.config.model, 'fct', 'silu')),
                 hidden_dim=28*28,
                 )
         self.embx = None
@@ -926,6 +951,9 @@ class MNISTMixtureRunner():
             , fct=nn.Tanh()
             , in_ch=self.c
             , freqs=self.config.flow.freqs
+            # sorting the logits makes sense only when conditioning on them; a sorted xi
+            # sample would lose which component was drawn
+            , sort_pi=not getattr(self.config.flow, 'condition_on_xi', False)
             ).to(self.config.device)
 
         self.Rt = CatNF_fixed(
@@ -943,6 +971,7 @@ class MNISTMixtureRunner():
             dirpath=self.args.log_path,  # Directory where checkpoints will be saved
             filename='best-checkpoint-{epoch:02d}-{val_loss:.2f}',  # Filename convention
             save_top_k=1,  # Only save the best model based on val_loss
+            save_last=True,  # also keep the final (converged) weights as last.ckpt
             mode='min'  # Minimize the validation loss
         )
         # Initialize the Trainer
@@ -983,7 +1012,7 @@ class MNISTMixtureRunner():
         if not self.args.resume_training:
             ckpt_path = None
         else:
-            ckpt_path = self.checkpoint_callback.best_model_path
+            ckpt_path = find_checkpoint(self.args.log_path, self.checkpoint_callback)
         self.trainer.fit(model, train_dataloader, val_dataloader, ckpt_path=ckpt_path)
 
 
@@ -999,22 +1028,22 @@ class MNISTMixtureRunner():
                 20, "data", 300, 50, split="balanced") # balanced
             dataloader = DataLoader(dataset, batch_size=6000,
                                 num_workers=self.config.data.num_workers, sampler=sampler)
-        ckpt_path = ckpt_path = self.checkpoint_callback.best_model_path
+        ckpt_path = find_checkpoint(self.args.log_path, self.checkpoint_callback)
 
-        
+
         model = FlowMatchingLightningModule(self.vt, self.Rt, self.rt, self.priorz, self.embx, self.config, self.args)
 
         # set to test mode
         self.trainer.test(model, dataloaders=dataloader, ckpt_path=ckpt_path)
 
-    def draw_figure(self):
+    def figure(self):
 
         _, test_dataset, _, test_sampler = get_mnist(
                 self.config.data.n_classes, "data", 1, 1) # 1,1,10 # 500, 500, 5000
         test_dataloader = DataLoader(test_dataset, batch_size=10,
                 num_workers=self.config.data.num_workers, sampler=test_sampler)
-        
-        ckpt_path = ckpt_path = self.checkpoint_callback.best_model_path
+
+        ckpt_path = find_checkpoint(self.args.log_path, self.checkpoint_callback)
 
         model = FlowMatchingLightningModule(self.vt, self.Rt, self.rt, self.priorz, self.embx, self.config, self.args)
 

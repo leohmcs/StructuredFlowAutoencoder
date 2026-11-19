@@ -1,3 +1,6 @@
+import os
+import re
+import glob
 import math
 import numpy as np
 import matplotlib.pyplot as plt
@@ -418,6 +421,43 @@ def dict2namespace(config):
             new_value = value
         setattr(namespace, key, new_value)
     return namespace
+
+
+def get_activation(name):
+    """Activation module from a config string (e.g. model.fct: softplus)."""
+    acts = {"silu": torch.nn.SiLU, "softplus": torch.nn.Softplus,
+            "tanh": torch.nn.Tanh, "relu": torch.nn.ReLU}
+    return acts[name.lower()]()
+
+
+def find_checkpoint(log_path, checkpoint_callback=None):
+    """Return the checkpoint to load for evaluation / resuming.
+
+    ModelCheckpoint.best_model_path is only populated inside the process that ran
+    training, so in a fresh process fall back to the 'best-checkpoint-*.ckpt' files
+    saved in log_path, choosing the lowest val_loss (newest file on ties).
+    """
+    if checkpoint_callback is not None and checkpoint_callback.best_model_path:
+        return checkpoint_callback.best_model_path
+    ckpts = glob.glob(os.path.join(log_path, 'best-checkpoint-*.ckpt'))
+    if not ckpts:
+        raise FileNotFoundError(
+            f"No 'best-checkpoint-*.ckpt' found in {log_path}. "
+            "Train first, or pass the training run's --doc.")
+
+    def key(path):
+        m = re.search(r'val_loss=(-?[0-9.]+?)(?:-v\d+)?\.ckpt$', os.path.basename(path))
+        return (float(m.group(1)) if m else float('inf'), -os.path.getmtime(path))
+    return min(ckpts, key=key)
+
+
+def find_resume_checkpoint(log_path, checkpoint_callback=None):
+    """Checkpoint to resume an interrupted training run from: the last completed epoch
+    (last.ckpt) when it exists, otherwise the best checkpoint as before."""
+    last = os.path.join(log_path, 'last.ckpt')
+    if os.path.exists(last):
+        return last
+    return find_checkpoint(log_path, checkpoint_callback)
 
 
 def remap_checkpoint_state_dict(state_dict):

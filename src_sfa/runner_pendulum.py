@@ -388,7 +388,7 @@ class PENDULUMRunner():
         if not self.args.resume_training:
             ckpt_path = None
         else:
-            ckpt_path = self.checkpoint_callback.best_model_path
+            ckpt_path = find_checkpoint(self.args.log_path, self.checkpoint_callback)
 
         self.trainer.fit(model, train_dataloader, val_dataloader, ckpt_path=ckpt_path)
 
@@ -408,7 +408,7 @@ class PENDULUMRunner():
         # Initialize the Lightning model
         model = FlowMatchingLightningModule(self.vt, self.rt, self.prior, self.config, self.args)
        
-        ckpt_path = self.checkpoint_callback.best_model_path
+        ckpt_path = find_checkpoint(self.args.log_path, self.checkpoint_callback)
 
         self.trainer.test(model, val_dataloader, ckpt_path=ckpt_path)
 
@@ -423,7 +423,7 @@ class PENDULUMRunner():
         # Initialize the Lightning model
         model = FlowMatchingLightningModule(self.vt, self.rt, self.prior, self.config, self.args)
         
-        ckpt_path = self.checkpoint_callback.best_model_path
+        ckpt_path = find_checkpoint(self.args.log_path, self.checkpoint_callback)
 
         self.trainer.test(model, test_dataloader, ckpt_path=ckpt_path)
 

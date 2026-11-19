@@ -16,8 +16,15 @@ from models.nn import *
 torch.set_printoptions(precision=3)
 
 class GaussianPrior(nn.Module):
-    def __init__(self, x_features: int, z_features: int, freqs: int=2, **kwargs):
+    def __init__(self, x_features: int, z_features: int, freqs: int=2, deterministic: bool=False,
+                 min_std: float=1e-5, **kwargs):
         super().__init__()
+        # floor added to the posterior std (flow.min_std). 1e-5 is the published code's value; the
+        # paper's Table 2 log p(z|x) = 793.26 is what a 64-dim posterior sitting on a 1e-6 floor gives.
+        self.min_std = min_std
+        # deterministic=True: z is the posterior mean (Table 2 "SFA w/Deterministic", not in the
+        # original code); default keeps the stochastic Gaussian posterior
+        self.deterministic = deterministic
         self.embx = nn.Sequential(
             nn.LayerNorm(x_features),
             # nn.Tanh()
@@ -29,7 +36,8 @@ class GaussianPrior(nn.Module):
         self.z_features = z_features
         self.register_buffer('freqs', torch.arange(1, freqs + 1) * torch.pi)
         
-    def forward(self, x:Tensor, t:Tensor=torch.Tensor([0]), min_variance=1e-5):
+    def forward(self, x:Tensor, t:Tensor=torch.Tensor([0]), min_variance=None):
+        min_variance = self.min_std if min_variance is None else min_variance
         x = x.flatten(start_dim=1) if x.ndim >= 4 else x
         t = self.freqs * t[..., None]
         xemb = self.embx(x)
@@ -42,11 +50,11 @@ class GaussianPrior(nn.Module):
 
     def rsample(self, x:Tensor,t:Tensor=torch.Tensor([0])):
         dist = self(x, t)
-        return dist.rsample()
+        return dist.mean if self.deterministic else dist.rsample()
 
     def sample(self, x:Tensor, t:Tensor=torch.Tensor([0])):
         dist = self(x, t)
-        return dist.sample()
+        return dist.mean if self.deterministic else dist.sample()
 
     def log_prob(self, x:Tensor, z:Tensor, t:Tensor=torch.Tensor([0])):
         dist = self(x, t)
@@ -67,6 +75,7 @@ class CNF(nn.Module):
         self.register_buffer('freqs', torch.arange(1, freqs + 1) * torch.pi)
 
     def forward(self, t: Tensor, z: Tensor, x: Tensor) -> Tensor:
+        x = x.flatten(start_dim=1) if x.ndim >= 4 else x  # as GaussianPrior.forward
         t = self.freqs * t[..., None]
         temb = torch.cat((t.cos(), t.sin()), dim=-1)
         temb = temb.expand(*z.shape[:-1], -1)
@@ -136,7 +145,8 @@ class FlowMatchingLoss(nn.Module):
 
         if self.fixz:
             # same time 
-            zt = self.rt.forward(xt, _t).rsample()
+            dist = self.rt.forward(xt, _t)
+            zt = dist.mean if getattr(self.rt, "deterministic", False) else dist.rsample()
         else:
             z0 = self.prior.sample((len(x),))
             zt = self.rt.decode(z0, xt, _t)
