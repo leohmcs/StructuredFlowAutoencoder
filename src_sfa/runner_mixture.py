@@ -309,7 +309,8 @@ class PinWheelMixtureRunner():
 
         if torch.cuda.is_available():
             accelerator='gpu'
-            strategy=DDPStrategy(find_unused_parameters=True)
+            # DDP needs NCCL (unavailable on Windows) and is pointless on a single GPU
+            strategy = DDPStrategy(find_unused_parameters=True) if (torch.cuda.device_count() > 1 and os.name != "nt") else "auto"
             devices="auto"
         else:
             accelerator='cpu'
@@ -949,7 +950,8 @@ class MNISTMixtureRunner():
 
         if torch.cuda.is_available():
             accelerator='gpu'
-            strategy=DDPStrategy(find_unused_parameters=True)
+            # DDP needs NCCL (unavailable on Windows) and is pointless on a single GPU
+            strategy = DDPStrategy(find_unused_parameters=True) if (torch.cuda.device_count() > 1 and os.name != "nt") else "auto"
             devices="auto"
         else:
             accelerator='cpu'

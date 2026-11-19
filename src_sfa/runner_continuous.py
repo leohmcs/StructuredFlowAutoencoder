@@ -565,7 +565,8 @@ class PinWheelRunner():
 
 		if torch.cuda.is_available():
 			accelerator='gpu'
-			strategy="ddp"
+			# DDP needs NCCL (unavailable on Windows) and is pointless on a single GPU
+			strategy = "ddp" if (torch.cuda.device_count() > 1 and os.name != "nt") else "auto"
 			devices="auto"
 		else:
 			accelerator='cpu'
@@ -669,7 +670,8 @@ class MNISTRunner():
 
 		if torch.cuda.is_available():
 			accelerator='gpu'
-			strategy="ddp"
+			# DDP needs NCCL (unavailable on Windows) and is pointless on a single GPU
+			strategy = "ddp" if (torch.cuda.device_count() > 1 and os.name != "nt") else "auto"
 			devices="auto"
 		else:
 			accelerator='cpu'
@@ -784,7 +786,8 @@ class HVGRunner():
 
 		if torch.cuda.is_available():
 			accelerator='gpu'
-			strategy="ddp"
+			# DDP needs NCCL (unavailable on Windows) and is pointless on a single GPU
+			strategy = "ddp" if (torch.cuda.device_count() > 1 and os.name != "nt") else "auto"
 			devices="auto"
 		else:
 			accelerator='cpu'
