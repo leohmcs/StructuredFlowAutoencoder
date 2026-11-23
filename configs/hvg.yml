@@ -33,7 +33,8 @@ model:
   v: 0.4
   ngf: 800 # 120 # 100
   freqs: 2
-  cnn: true
+  cnn: false # true sends the test step down the image branch and skips Vendi (x)
+  hidden_dim: 500 # x/z embedding width of the vector field; runner default is 800
 
 optim:
   weight_decay: 0.0001 # 0.001

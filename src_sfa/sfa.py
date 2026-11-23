@@ -29,8 +29,10 @@ class GaussianPrior(nn.Module):
         self.z_features = z_features
         self.register_buffer('freqs', torch.arange(1, freqs + 1) * torch.pi)
         
-    def forward(self, x:Tensor, t:Tensor=torch.Tensor([0]), min_variance=1e-5):
+    def forward(self, x:Tensor, t:Tensor=None, min_variance=1e-5):
         x = x.flatten(start_dim=1) if x.ndim >= 4 else x
+        if t is None:  # default t=0, created on x's device (a CPU default breaks on GPU)
+            t = torch.zeros(1, device=x.device, dtype=x.dtype)
         t = self.freqs * t[..., None]
         xemb = self.embx(x)
         temb = torch.cat((t.cos(), t.sin()), dim=-1)
@@ -40,15 +42,15 @@ class GaussianPrior(nn.Module):
         mu, log_sigma = phi.chunk(2, dim=-1)
         return Normal((mu), F.softplus(log_sigma)+min_variance)
 
-    def rsample(self, x:Tensor,t:Tensor=torch.Tensor([0])):
+    def rsample(self, x:Tensor,t:Tensor=None):
         dist = self(x, t)
         return dist.rsample()
 
-    def sample(self, x:Tensor, t:Tensor=torch.Tensor([0])):
+    def sample(self, x:Tensor, t:Tensor=None):
         dist = self(x, t)
         return dist.sample()
 
-    def log_prob(self, x:Tensor, z:Tensor, t:Tensor=torch.Tensor([0])):
+    def log_prob(self, x:Tensor, z:Tensor, t:Tensor=None):
         dist = self(x, t)
         return dist.log_prob(z).sum(-1)
 
@@ -138,7 +140,7 @@ class FlowMatchingLoss(nn.Module):
             # same time 
             zt = self.rt.forward(xt, _t).rsample()
         else:
-            z0 = self.prior.sample((len(x),))
+            z0 = self.prior.sample((len(x),)).to(x)  # prior may live on CPU
             zt = self.rt.decode(z0, xt, _t)
 
         fm_loss = (self.vt(_t, xt, zt) - ut).square().mean()

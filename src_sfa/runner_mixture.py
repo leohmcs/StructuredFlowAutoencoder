@@ -321,6 +321,7 @@ class PinWheelMixtureRunner():
         # Add the callback
 
         self.trainer = pl.Trainer(
+            default_root_dir=self.args.log_path,  # Lightning logs go to exp/logs/<run>/lightning_logs
             max_epochs=self.config.training.n_epochs, 
             # accelerator='gpu',
             accelerator = accelerator,
@@ -962,6 +963,7 @@ class MNISTMixtureRunner():
         plot_loss_callback = PlotLossCallback(save_path=os.path.join(self.args.log_sample_path, f'loss.png'), update_interval=1)
         plot_llk_callback = PlotLogLikelihoodCallback(save_path=self.args.log_sample_path, log_keys=("val_log_lik", "val_log_post_z"))
         self.trainer = pl.Trainer(
+            default_root_dir=self.args.log_path,  # Lightning logs go to exp/logs/<run>/lightning_logs
             max_epochs=self.config.training.n_epochs, 
             # accelerator='gpu',
             accelerator = accelerator,

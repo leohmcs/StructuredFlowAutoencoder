@@ -139,7 +139,8 @@ class LLK(nn.Module):
         self.fc1 = MLP(
             # self.hidden_dim + self.x_flat_dim + self.dtemb + seq_dim,
             # z_features + self.x_flat_dim + self.dtemb + seq_dim,
-            self.hidden_dim*2+ self.dtemb + seq_dim,
+            # embx is identity, so x enters at x_flat_dim (== hidden_dim only for square images)
+            self.hidden_dim + self.x_flat_dim + self.dtemb + seq_dim,
             # self.hidden_dim*3 + seq_dim,
             self.x_flat_dim, **kwargs)
     

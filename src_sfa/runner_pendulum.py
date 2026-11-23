@@ -365,6 +365,7 @@ class PENDULUMRunner():
         plot_gradnorm_callback = GradientNormPlotCallback(save_path=os.path.join(self.args.log_sample_path, f'gradnorm.png'))
         plot_rmse_callback = PlotRMSECallback(save_path=os.path.join(self.args.log_sample_path, f'rmse.png'), snapshot_freq=self.config.training.snapshot_freq)
         self.trainer = pl.Trainer(
+            default_root_dir=self.args.log_path,  # Lightning logs go to exp/logs/<run>/lightning_logs
             # gradient_clip_val=self.config.optim.clip_value,
             max_epochs=self.config.training.n_epochs,
             # accelerator='gpu',

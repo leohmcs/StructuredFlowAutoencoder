@@ -78,11 +78,9 @@ def _hvg_train(config):
 
 
 def _hvg_eval(config):
-    # Same held-out split as HVGRunner.sample(): the whole 'valid' split in one batch
-    from dataloader.dataloader_hvg import get_hvg_dataloaders
-    _, val, _ = get_hvg_dataloaders(
-        dat_dir="data", batch_size=1226, num_workers=config.data.num_workers)
-    return val
+    # Same evaluation cells as HVGRunner.sample(): 500 random 'valid' cells in one batch
+    from dataloader.dataloader_hvg import get_hvg_eval_loader
+    return get_hvg_eval_loader(dat_dir="data", num_workers=config.data.num_workers)
 
 
 def _pinwheel(config):

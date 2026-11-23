@@ -169,6 +169,30 @@ def get_dataloaders_from_adata_splits(
     return train_dataloader, valid_dataloader, test_dataloader
 
 
+# Evaluation set: a fixed random subset of the held-out 'valid' split. The paper evaluates on
+# "a held-out set of size 500" without saying which cells; every HVG evaluation (SFA, VAE,
+# LatentFM, PCA) uses these same cells so the numbers are comparable.
+HVG_EVAL_N = 500
+HVG_EVAL_SEED = 0
+
+
+def hvg_eval_indices(split_column, n=HVG_EVAL_N, seed=HVG_EVAL_SEED):
+	"""Sorted row indices of n cells drawn without replacement from the 'valid' split."""
+	valid_indices = np.where(np.asarray(split_column) == "valid")[0]
+	rng = np.random.default_rng(seed)
+	return np.sort(rng.choice(valid_indices, size=min(n, len(valid_indices)), replace=False))
+
+
+def get_hvg_eval_loader(dat_dir, num_workers=0, n=HVG_EVAL_N, seed=HVG_EVAL_SEED):
+	"""One batch holding the n evaluation cells (see hvg_eval_indices)."""
+	prepared = AnnDataFeaturesLabels(
+		h5ad_path=os.path.join(dat_dir, "kang_normalized_hvg.h5ad"), label_obs_key='cell_type')
+	idx = hvg_eval_indices(prepared.adata.obs['split_B'], n, seed)
+	print(f"Evaluation set: {len(idx)} random 'valid' cells (seed={seed})")
+	dataset = Subset(TorchDatasetFromPrepared(prepared.features, prepared.labels), idx)
+	return DataLoader(dataset, batch_size=len(idx), shuffle=False, num_workers=num_workers)
+
+
 def get_hvg_dataloaders(dat_dir, batch_size, num_workers):
 	h5ad_file_path = os.path.join(dat_dir, "kang_normalized_hvg.h5ad")
 	label_column = 'cell_type'       # Column in adata.obs for labels

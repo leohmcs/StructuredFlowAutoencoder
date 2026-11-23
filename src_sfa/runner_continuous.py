@@ -1,4 +1,5 @@
 import os
+import json
 import itertools
 import numpy as np
 import ot
@@ -38,6 +39,19 @@ torch.set_default_dtype(torch.float64)
 torch.set_printoptions(precision=3)
 
 
+def _best_ckpt(log_path):
+	"""Return the 'best-checkpoint-...-val_loss=X.ckpt' in log_path with the lowest X."""
+	import re
+	best, best_loss = None, float('inf')
+	for f in os.listdir(log_path):
+		m = re.match(r'best-checkpoint-.*val_loss=(-?\d+(?:\.\d+)?)\.ckpt$', f)
+		if m and float(m.group(1)) < best_loss:
+			best, best_loss = os.path.join(log_path, f), float(m.group(1))
+	if best is None:
+		raise FileNotFoundError(f"No best-checkpoint-*.ckpt found in {log_path}")
+	return best
+
+
 
 class LightningModule(pl.LightningModule):
 	def __init__(self, vt: nn.Module, rt: nn.Module, priorz, config, args):
@@ -62,6 +76,9 @@ class LightningModule(pl.LightningModule):
 			self.priory = Normal(torch.zeros(self.c, self.p, self.p).to(self.device), torch.ones(self.c, self.p, self.p).to(self.device))
 		else:
 			self.priory = Normal(torch.zeros(self.p), torch.ones(self.p))
+
+		# The runner builds priorz on CPU; move it to the training device
+		self.priorz = Normal(self.priorz.loc.to(self.device), self.priorz.scale.to(self.device))
 
 		self.flow_matching_loss = FlowMatchingLoss(
 			self.vt, self.rt, self.priorz,
@@ -345,7 +362,8 @@ class LightningModule(pl.LightningModule):
 		if z1.shape[1] == 1:
 			fig = plt.figure(figsize=(8, 6))
 			ax = fig.add_subplot(111)
-			scatter = ax.scatter(x[:,0], x[:,1], c=z0_np, cmap=plt.colormaps['hsv'], s=10)
+			x_np = x.cpu().detach().numpy()
+			scatter = ax.scatter(x_np[:,0], x_np[:,1], c=z0_np, cmap=plt.colormaps['hsv'], s=10)
 			cbar = plt.colorbar(scatter, ax=ax, pad=0.1, orientation='vertical', shrink=0.5)
 			# ax.set_title("Generated latent z given x")
 
@@ -508,6 +526,17 @@ class LightningModule(pl.LightningModule):
 				# also evaluate the generated x 
 				vs_x, xnew = self.test_regenerate(X.to(torch.float64), y)
 				self.log('test_vendi_x', vs_x, on_step=True, on_epoch=True, sync_dist=True, logger=True)
+				# posterior log-density of encoded latents, log p(z|x); same quantity as the
+				# training-time 'tra_log_post_z' and the VAE baseline's 'test_log_post_z'
+				x_flat = X.to(torch.float64).flatten(start_dim=1)
+				if self.config.flow.fix_z:
+					z0 = self.rt.sample(x_flat)
+					log_post_z = self.rt.log_prob(x_flat, z0).mean()
+				else:
+					z1 = self.priorz.sample((len(X),)).to(x_flat)
+					z0 = self.rt.decode(z1, x_flat)
+					log_post_z = self.rt.log_prob(z0, x_flat, 0, self.priorz).mean()
+				self.log('test_log_post_z', log_post_z, on_step=False, on_epoch=True, sync_dist=True, logger=True)
 
 				# xnew = self.test_generate(n)
 				# xnew = xnew.cpu().detach().numpy()
@@ -557,7 +586,8 @@ class PinWheelRunner():
 		    dirpath=self.args.log_path,  # Directory where checkpoints will be saved
 		    filename='best-checkpoint-{epoch:02d}-{val_loss:.2f}',  # Filename convention
 		    save_top_k=5,  # Only save the best model based on val_loss
-		    mode='min'  # Minimize the validation loss
+		    mode='min',  # Minimize the validation loss
+		    save_last=True  # last.ckpt for resuming
 		)
 		plot_llk_callback = PlotLogLikelihoodCallback(save_path=self.args.log_sample_path, log_keys=("tra_log_lik", "tra_log_post_z"))
 		plot_loss_callback = PlotLossCallback(save_path=os.path.join(self.args.log_sample_path, f'loss.png'), update_interval=1)
@@ -574,7 +604,8 @@ class PinWheelRunner():
 			strategy = "auto"
 
 		self.trainer = pl.Trainer(
-			max_epochs=self.config.training.n_epochs, 
+			default_root_dir=self.args.log_path,  # Lightning logs go to exp/logs/<run>/lightning_logs
+			max_epochs=self.config.training.n_epochs,
 			# accelerator='gpu',
 			accelerator = accelerator,
 			devices=devices,
@@ -595,10 +626,11 @@ class PinWheelRunner():
 		if not self.args.resume_training:
 			ckpt_path = None
 		else:
-			_ckpt_path = os.path.join(self.args.tb_path, "lightning_logs/version_0/checkpoints")
-			ckpt_files = [f for f in 
-					os.listdir(_ckpt_path) if f.endswith('.ckpt')]
-			ckpt_path = os.path.join(_ckpt_path, ckpt_files[-1])
+			# Resume from the most recently written checkpoint in the log dir
+			ckpt_files = [os.path.join(self.args.log_path, f) for f in
+					os.listdir(self.args.log_path) if f.endswith('.ckpt')]
+			ckpt_path = max(ckpt_files, key=os.path.getmtime)
+			print(f"Resuming from {ckpt_path}")
 
 		self.trainer.fit(
 			model, train_dataloader, val_dataloader, ckpt_path=ckpt_path
@@ -682,6 +714,7 @@ class MNISTRunner():
 		plot_llk_callback = PlotLogLikelihoodCallback(save_path=self.args.log_sample_path, log_keys=("tra_log_lik", "tra_log_post_z"))
 
 		self.trainer = pl.Trainer(
+			default_root_dir=self.args.log_path,  # Lightning logs go to exp/logs/<run>/lightning_logs
 			max_epochs=self.config.training.n_epochs, 
 			# accelerator='gpu',
 			accelerator = accelerator,
@@ -760,7 +793,7 @@ class HVGRunner():
 					self.d,
 					model="mlp_high",
 					hidden_features=[self.config.model.ngf]*3,
-					hidden_dim=800, # 500 was ok, 800 is unstable
+					hidden_dim=getattr(self.config.model, 'hidden_dim', 800), # 500 was ok, 800 is unstable
 					fct=nn.Softplus(),
 					freqs=20,
 					).to(self.config.device)
@@ -797,13 +830,24 @@ class HVGRunner():
 		plot_loss_callback = PlotLossCallback(save_path=os.path.join(self.args.log_sample_path, f'loss.png'), update_interval=1)
 		plot_llk_callback = PlotLogLikelihoodCallback(save_path=self.args.log_sample_path, log_keys=("tra_log_lik", "tra_log_post_z"))
 
+		# Keep a weights-only snapshot every 5 epochs: the latent clusters best early
+		# and degrades later, so the lowest-val_loss checkpoint is not the best latent
+		periodic_checkpoint = ModelCheckpoint(
+			dirpath=self.args.log_path,
+			filename='periodic-{epoch:03d}',
+			every_n_epochs=5,
+			save_top_k=-1,
+			save_weights_only=True
+		)
+
 		self.trainer = pl.Trainer(
-			max_epochs=self.config.training.n_epochs, 
+			default_root_dir=self.args.log_path,  # Lightning logs go to exp/logs/<run>/lightning_logs
+			max_epochs=self.config.training.n_epochs,
 			# accelerator='gpu',
 			accelerator = accelerator,
 			devices=devices,
 			strategy=strategy,
-			callbacks=[plot_loss_callback, plot_llk_callback, self.checkpoint_callback]
+			callbacks=[plot_loss_callback, plot_llk_callback, self.checkpoint_callback, periodic_checkpoint]
 		)
 
 
@@ -825,10 +869,20 @@ class HVGRunner():
 			)
 
 	def sample(self):
-		_, val_dataloader, test_dataloader = get_hvg_dataloaders(
-	    	dat_dir="data", batch_size=1226, num_workers=self.config.data.num_workers)
+		# 500 random held-out cells, shared with the baselines (dataloader_hvg.hvg_eval_indices)
+		eval_dataloader = get_hvg_eval_loader(dat_dir="data", num_workers=self.config.data.num_workers)
 		model = LightningModule(self.vt, self.rt, self.priorz, self.config, self.args)
 
-		ckpt_path = self.checkpoint_callback.best_model_path
+		# best_model_path is only set during fit in the same process; in a fresh eval run,
+		# pick the lowest-val_loss checkpoint saved in the log dir instead.
+		ckpt_path = self.checkpoint_callback.best_model_path or _best_ckpt(self.args.log_path)
+		print(f"Evaluating checkpoint: {ckpt_path}")
 
-		self.trainer.test(model, dataloaders=val_dataloader, ckpt_path=ckpt_path)
+		results = self.trainer.test(model, dataloaders=eval_dataloader, ckpt_path=ckpt_path)
+		# Keep only epoch-level values, named like the baselines' test_metrics.json
+		metrics = {k.removesuffix('_epoch'): float(v) for k, v in results[0].items()
+				   if not k.endswith('_step')}
+		metrics['checkpoint'] = os.path.basename(ckpt_path)
+		with open(os.path.join(self.args.log_path, 'test_metrics.json'), 'w') as f:
+			json.dump(metrics, f, indent=2)
+		print(f"Saved {os.path.join(self.args.log_path, 'test_metrics.json')}")

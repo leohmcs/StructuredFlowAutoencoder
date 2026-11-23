@@ -34,7 +34,7 @@ inv_transform = transforms.Compose([
 class PENDULUM(Dataset):
     def __init__(self, N, p, S, dat_dir, window_size=9, stride=1, use_sliding_window=True, 
                  samples_per_batch=64, batch_from_same_trajectory=False,
-                 state_dim=2, gen=False, plot=False, seed=111, transform=None):
+                 state_dim=2, gen=False, plot=False, seed=42, transform=None):
         self.N = N
         self.n = state_dim  # latent dim
         self.p = p  # ambient dim
@@ -94,7 +94,7 @@ class PENDULUM(Dataset):
         pend_params[Pendulum.LENGTH_KEY] = .12 # .09
         pendulum = Pendulum(self.p, observation_mode=Pendulum.OBSERVATION_MODE_LINE,
                         transition_noise_std=0., observation_noise_std=1e-5,
-                        seed=42, pendulum_params=pend_params,
+                        seed=self.seed, pendulum_params=pend_params,
                         state_dim=self.n)
 
         obs, targets, _, _ = pendulum.sample_data_set(self.N, self.S, full_targets=False)
@@ -200,7 +200,7 @@ class PENDULUM(Dataset):
 def get_pendulum_dataloader(Ntrain, Ntest, p, S, dat_dir, window_size=9, stride=1, batch_size=64,
                            samples_per_batch=64, batch_from_same_trajectory=False,
                            state_dim=2, gen=False, plot=False, shuffle=True, num_workers=4,
-                           logtran=True):
+                           logtran=True, seed=42):
     """
     Creates and returns dataloaders for training and testing with the sliding window approach.
     
@@ -251,7 +251,7 @@ def get_pendulum_dataloader(Ntrain, Ntest, p, S, dat_dir, window_size=9, stride=
         N=Ntrain, p=p, S=S, dat_dir=dat_dir, 
         window_size=window_size, stride=stride, use_sliding_window=True,
         samples_per_batch=samples_per_batch, batch_from_same_trajectory=batch_from_same_trajectory,
-        state_dim=state_dim, gen=gen, plot=plot, transform=tran
+        state_dim=state_dim, gen=gen, plot=plot, seed=seed, transform=tran
     )
     
     # Create test dataset (optionally with sliding window)
@@ -259,7 +259,7 @@ def get_pendulum_dataloader(Ntrain, Ntest, p, S, dat_dir, window_size=9, stride=
         N=Ntest, p=p, S=S, dat_dir=dat_dir + "_test", 
         window_size=window_size, stride=stride, use_sliding_window=True,
         samples_per_batch=samples_per_batch, batch_from_same_trajectory=batch_from_same_trajectory,
-        state_dim=state_dim, gen=gen, transform=tran
+        state_dim=state_dim, gen=gen, seed=seed + 1, transform=tran
     )
     
     # If batch_from_same_trajectory is True, each __getitem__ call returns a full batch
