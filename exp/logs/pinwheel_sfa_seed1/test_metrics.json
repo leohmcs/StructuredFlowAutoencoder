@@ -1,0 +1,11 @@
+{
+  "runner": "pinwheel",
+  "seed": 1,
+  "checkpoint": "exp\\logs\\pinwheel_sfa_seed1\\best-checkpoint-epoch=618-val_loss=1.6175.ckpt",
+  "batch_size": 500,
+  "n_batches": 20,
+  "test_emd": 0.41585619242774774,
+  "test_w1_raw": 1.1414659455471263,
+  "test_emd_ref": 0.334587954753255,
+  "test_w1_raw_ref": 0.9203455634025944
+}

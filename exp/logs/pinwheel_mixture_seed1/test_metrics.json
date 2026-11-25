@@ -1,0 +1,11 @@
+{
+  "runner": "pinwheel_mixture",
+  "seed": 1,
+  "checkpoint": "exp\\logs\\pinwheel_mixture_seed1\\best-checkpoint-epoch=361-val_loss=8.3776.ckpt",
+  "batch_size": 2500,
+  "n_batches": 1,
+  "test_emd": 0.17434145440551865,
+  "test_w1_raw": 0.5297799403825317,
+  "test_emd_ref": 0.1029797381668451,
+  "test_w1_raw_ref": 0.30238041181368386
+}
