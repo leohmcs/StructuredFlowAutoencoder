@@ -35,9 +35,9 @@ RUNNERS = {
     "mnist_vae": ("benchmarks.vae", "MNISTRunner"),
     "mnist_latentfm": ("benchmarks.latentfm", "MNISTRunner"),
     "mnist_latentfm_vae": ("benchmarks.latentfm", "MNISTVAERunner"),
-    # leo's MNIST baselines (authors' training loop)
-    "mnist_vae_authors_loop": ("baselines.vae", "VAERunner"),
-    "mnist_mixture_svae": ("baselines.mixture_svae", "MixtureSVAERunner"),
+    "pinwheel_mixture_svae": ("benchmarks.mixture_svae", "PinWheelRunner"),
+    "mnist_mixture_svae": ("benchmarks.mixture_svae", "MNISTRunner"),
+    "pinwheel_fm": ("benchmarks.fm", "PinWheelRunner"),
 }
 
 

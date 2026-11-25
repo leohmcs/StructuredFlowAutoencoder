@@ -26,6 +26,20 @@ def make_pinwheel(num_classes, num_per_class, radial_std=0.15, tangential_std=0.
 	return np.concatenate([data, labels[:,np.newaxis]], axis=1)
 
 
+def true_pinwheel(n, num_classes):
+	"""n fresh i.i.d. ground-truth points (labels dropped), drawn from numpy's global RNG.
+
+	Used as the data-vs-data reference (noise floor) of the EMD. The number of points per arm is
+	random (multinomial), just as in a shuffled test batch or in a model's samples. Exactly
+	n/num_classes per arm would make the reference too low (0.025 instead of 0.033 at n=500, cost
+	normalised to max 1), because W1 charges for moving mass between arms.
+	"""
+	data = make_pinwheel(num_classes, n)[:, :2]  # n points per arm, stored arm by arm
+	counts = np.random.multinomial(n, [1.0 / num_classes] * num_classes)
+	x = np.concatenate([data[k * n:k * n + c] for k, c in enumerate(counts)])
+	return x[np.random.permutation(n)]
+
+
 class PINWHEEL(Dataset):
 	def __init__(self, 
 		num_per_class, dat_dir, gen=False, plot=False,

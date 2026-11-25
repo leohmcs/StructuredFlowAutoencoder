@@ -89,18 +89,27 @@ flow:
   depth: 1
   cnn: false
 
-vae:  # VAE baseline (baselines/vae.py, not the authors' code); unset keys fall back to the code defaults
-  hidden: 630   # 2 hidden layers each in encoder and decoder -> 2,400,736 parameters, matched to SFA's 2.4M (Sec. 4 compares their cost)
-  depth: 2
-  beta: 1.      # plain VAE (Table 2 "VAE")
-  min_std: 1.e-5  # floor on the encoder/decoder standard deviations, as in the authors' GaussianPrior; not stated in the paper
-
-mixture_svae:  # Mixture-SVAE baseline (baselines/mixture_svae.py, not the authors' code)
-  hidden: 454   # 2 hidden layers in each of q(xi|x), q(z|x,xi), p(x|z) -> 2,510,054 parameters, matched to Mixture-SFA's 2,514,112 (the paper gives no size)
-  depth: 2
-  beta: 1.      # plain ELBO
-  temp: 1.      # Gumbel-Softmax temperature, same as Mixture-SFA (flow.beta)
-  prior_scale: 0.1  # fixed prior (Sec. 4): pi uniform, p(z|xi=k) = N(mu_k, I), mu_k ~ N(0, prior_scale^2 I) drawn once (seed 0).
-                    # Not stated in the paper. 1.0 and 0.3 collapse q(xi|x) onto a single component within 5 epochs; 0.1 is the
-                    # only tested value that keeps several components in use (chosen on training images, no labels).
-  min_std: 1.e-5   # decoder std floor, as for the VAE
+baseline:  # baselines in benchmarks/ (not the authors' code); unset keys fall back to the code defaults
+  fct: softplus   # PAPER: softplus activation (App. B.3), as model.fct
+  layer_norm: false
+  vae:
+    enc_width: 630  # 2 hidden layers each in encoder and decoder -> ~2.4M parameters, matched to SFA's 2.4M (Sec. 4 compares their cost)
+    enc_depth: 2
+    dec_width: 630
+    dec_depth: 2
+    beta: 1.        # plain VAE (Table 2 "VAE")
+    min_std: 1.e-5  # floor on the decoder standard deviation, as in the authors' GaussianPrior; not stated in the paper
+    enc_min_std: 1.e-5
+  mixture_svae:
+    enc_width: 454  # 2 hidden layers in each of q(xi|x), q(z|x,xi), p(x|z) -> ~2.5M parameters, matched to Mixture-SFA's 2,514,112 (the paper gives no size)
+    enc_depth: 2
+    dec_width: 454
+    dec_depth: 2
+    beta: 1.        # plain ELBO
+    temp: 1.        # Gumbel-Softmax temperature, same as Mixture-SFA (flow.beta)
+    prior_means: random
+    prior_scale: 0.1  # fixed prior (Sec. 4): pi uniform, p(z|xi=k) = N(mu_k, I), mu_k ~ N(0, prior_scale^2 I) drawn once (seed 0).
+                      # Not stated in the paper. 1.0 and 0.3 collapse q(xi|x) onto a single component within 5 epochs; 0.1 is the
+                      # only tested value that keeps several components in use (chosen on training images, no labels).
+    prior_std: 1.
+    min_std: 1.e-5    # decoder std floor, as for the VAE

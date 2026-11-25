@@ -12,8 +12,9 @@ Variants (the only MNIST models the repo implements):
     sfa      runner `mnist`,          flow.fix_z=true  -> Gaussian posterior   (Table 2 "SFA")
     sfa_cnf  runner `mnist`,          flow.fix_z=false -> CNF posterior        (Table 2 "w/CNF Posterior")
     mixture  runner `mnist_mixture`                                            (Table 3 "Mixture-SFA")
-The baselines (VAE, VampVAE, Latent FM, Mixture-SVAE) and "SFA w/Deterministic" have
-no code in this repo, so their rows only show the paper's numbers.
+Further variants (not the authors' code): "SFA w/Deterministic" (flow.deterministic) and the
+VAE / Mixture-SVAE baselines of benchmarks/ (runners `mnist_vae`, `mnist_mixture_svae`). VampVAE
+and Latent FM rows only show the paper's numbers.
 
 Outputs (default exp/reproduction/):
     table2_mnist_continuous.{md,csv}   Table 2, paper vs reproduced
@@ -63,6 +64,7 @@ import numpy as np
 import torch
 import yaml
 from sklearn.decomposition import PCA
+from torch.distributions import Normal
 from torchdiffeq import odeint
 from torchmetrics.image.ssim import StructuralSimilarityIndexMeasure
 from vendi_score import vendi
@@ -84,9 +86,9 @@ VARIANTS = {
     # the paper names this variant but the repository has no code for it
     "sfa_det": dict(runner="mnist", suffix="_deterministic", overrides={"flow.deterministic": True},
                     label="w/Deterministic"),
-    # baseline, not the authors' code: baselines/vae.py
+    # baseline, not the authors' code: benchmarks/vae.py
     "vae": dict(runner="mnist_vae", suffix="_vae", overrides={}, label="VAE"),
-    # baseline, not the authors' code: baselines/mixture_svae.py
+    # baseline, not the authors' code: benchmarks/mixture_svae.py
     "mixture_svae": dict(runner="mnist_mixture_svae", suffix="_mixture_svae", overrides={}, label="Mixture-SVAE"),
     # ── one-factor ablations of the paper config: each flips one setting the paper does not state
     #    explicitly back to the repository's value (see "INFERRED:" / "PAPER:" in configs/mnist_paper.yml)
@@ -183,20 +185,31 @@ def load_variant(name, doc, exp, raw_dir, config_name, which):
     os.makedirs(raw_dir, exist_ok=True)
     args.log_sample_path = raw_dir
 
-    if v["runner"] == "mnist_mixture":
-        module = runner_mixture.FlowMatchingLightningModule(
-            runner.vt, runner.Rt, runner.rt, runner.priorz, runner.embx, config, args)
-    elif v["runner"] == "mnist_vae":
-        from baselines.vae import VAELightningModule
-        module = VAELightningModule(runner.vt, runner.rt, runner.priorz, config, args)
-    elif v["runner"] == "mnist_mixture_svae":
-        from baselines.mixture_svae import MixtureSVAELightningModule
-        module = MixtureSVAELightningModule(runner.vt, runner.Rt, runner.rt, runner.priorz, runner.embx, config, args)
-    else:
-        module = runner_continuous.LightningModule(runner.vt, runner.rt, runner.priorz, config, args)
-    module.setup("test")
     ckpt = torch.load(ckpt_path, map_location="cpu")
-    module.load_state_dict(ckpt["state_dict"])  # strict: architecture must match the run
+    if v["runner"] in BASELINE_RUNNERS:
+        # benchmarks/ baseline: load its own module, then hand its networks (which expose the
+        # interfaces of SFA's posterior / likelihood) to the authors' module, so the evaluation
+        # below runs the same test code as for SFA
+        base = runner.model
+        base.load_state_dict(ckpt["state_dict"])  # strict: architecture must match the run
+        if v["runner"] == "mnist_mixture_svae":
+            base.Rt.temp = base.temp_min  # as in the baseline's own test step
+            module = runner_mixture.FlowMatchingLightningModule(
+                base.vt, base.Rt, base.rt, base.priorz, None, config, args)
+            module.condition_on_xi = True  # q(z | x, xi) is part of the model definition
+        else:
+            d = config.flow.z_dim
+            module = runner_continuous.LightningModule(
+                base.vae.decoder, base.vae.encoder, Normal(torch.zeros(d), torch.ones(d)), config, args)
+        module.setup("test")
+    else:
+        if v["runner"] == "mnist_mixture":
+            module = runner_mixture.FlowMatchingLightningModule(
+                runner.vt, runner.Rt, runner.rt, runner.priorz, runner.embx, config, args)
+        else:
+            module = runner_continuous.LightningModule(runner.vt, runner.rt, runner.priorz, config, args)
+        module.setup("test")
+        module.load_state_dict(ckpt["state_dict"])  # strict: architecture must match the run
     module.eval()
     return module, config, dict(checkpoint=ckpt_path, checkpoint_kind=ckpt_kind, epoch=ckpt.get("epoch"))
 
@@ -655,10 +668,10 @@ def write_readme(results, opts, out):
         "explicitly (marked INFERRED / PAPER in the config).",
         "- NMI/ARI: continuous — `test_plot_latent` (KMeans on z, k=10 / k=20 for OOD); mixture — "
         "`test_plot_latent` (argmax of q(xi|x)) and `soft_nmi`.",
-        "- VAE and Mixture-SVAE: our implementations (`baselines/vae.py`, `baselines/mixture_svae.py`), "
-        "not the authors' code; trained and evaluated by the authors' continuous / mixture LightningModules "
-        "with the loss replaced by the (mixture) negative ELBO. Choices the paper does not state are in "
-        "the `vae:` / `mixture_svae:` sections of the config.",
+        "- VAE and Mixture-SVAE: our implementations (`benchmarks/vae.py`, `benchmarks/mixture_svae.py`), "
+        "not the authors' code; trained by the shared baseline loop in `benchmarks/common.py` and evaluated "
+        "here by the authors' continuous / mixture LightningModules, wrapped around the trained networks. "
+        "Choices the paper does not state are in the `baseline.vae` / `baseline.mixture_svae` sections of the config.",
         "- SFA w/Deterministic: named in the paper but not implemented in the repository; here it is the "
         "authors' SFA with z = posterior mean in training and evaluation (`flow.deterministic`).",
         "- Not reproducible from this repo: VampVAE, Latent FM, Latent FM (VAE) (no code), and the "

@@ -54,3 +54,17 @@ flow:
   beta: 1. # higher promotes uniformity
   fix_z: true
   fix_pi: true #false
+
+baseline:  # baselines in benchmarks/ (not the authors' code)
+  mixture_svae:  # Mixture-SVAE (Table 1 / Fig. 1). The paper does not state these; chosen for pinwheel:
+    enc_width: 200     # q(xi|x) and q(z|x,xi): 2 x 200 tanh hidden units
+    enc_depth: 2
+    dec_width: 200     # p(x|z): 4 x 200
+    dec_depth: 4
+    xi_embed: 5        # xi enters q(z|x,xi) through a K -> K linear map (equivalent to concatenating xi)
+    prior_means: linspace  # component means -4, -2, 0, 2, 4
+    prior_scale: 4.
+    prior_std: 0.5
+    temp: 1.           # Gumbel-Softmax temperature annealed from 1.0 to 0.5 during training
+    temp_min: 0.5
+    min_std: 1.e-4

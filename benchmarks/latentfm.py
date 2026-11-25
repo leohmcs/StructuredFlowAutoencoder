@@ -13,10 +13,11 @@ Two variants:
     LatentFM        deterministic MLP encoder / decoder, MSE reconstruction
     LatentFM w/VAE  Gaussian encoder / decoder (the VAE of benchmarks/vae.py)
 
-Optional config entries (section `baseline:`):
+Optional config entries (section `baseline:` or `baseline.latentfm:`), besides the
+network options listed in benchmarks/common.py:
     ae_epochs    length of stage 1 (default: half of training.n_epochs)
     flow_depth   hidden layers of the latent vector field (default 3)
-    beta, min_std   as in benchmarks/vae.py, for the w/VAE variant
+    beta, min_std, enc_min_std   as in benchmarks/vae.py, for the w/VAE variant
 """
 
 import torch
@@ -26,8 +27,7 @@ from torch.distributions import Normal
 from torchdiffeq import odeint
 
 from models.nn import MLP
-from benchmarks.common import (
-    BaselineModule, BaselineRunner, baseline_opt, decoder_net, encoder_net)
+from benchmarks.common import BaselineModule, BaselineRunner
 from benchmarks.vae import VAE
 
 
@@ -79,24 +79,26 @@ class LatentFlow(nn.Module):
 
 
 class LatentFMModule(BaselineModule):
+    name = "latentfm"
     probabilistic = False  # True: LatentFM w/VAE
 
     def __init__(self, config, args, spec):
         super().__init__(config, args, spec)
         n_epochs = config.training.n_epochs
-        self.ae_epochs = baseline_opt(config, "ae_epochs", n_epochs // 2)
+        self.ae_epochs = self.opt("ae_epochs", n_epochs // 2)
 
         if self.probabilistic:
-            self.beta = baseline_opt(config, "beta", 1.0)
-            self.vae = VAE(spec, min_std=baseline_opt(config, "min_std", 1e-3))
+            self.beta = self.opt("beta", 1.0)
+            self.vae = VAE.from_module(self)
         else:
-            self.encoder = encoder_net(spec, spec.z_dim)
-            self.decoder = decoder_net(spec, spec.x_dim)
+            mlp = MLP(spec.x_dim, spec.z_dim, hidden_features=self.enc_hidden, fct=self.fct)
+            self.encoder = nn.Sequential(nn.LayerNorm(spec.x_dim), mlp) if self.layer_norm else mlp
+            self.decoder = MLP(spec.z_dim, spec.x_dim, hidden_features=self.dec_hidden, fct=self.fct)
 
         self.flow = LatentFlow(
             spec.z_dim,
-            hidden_features=[config.flow.ngf] * baseline_opt(config, "flow_depth", 3),
-            fct=spec.fct, freqs=max(getattr(config.flow, "freqs", 2), 2))
+            hidden_features=[config.flow.ngf] * self.opt("flow_depth", 3),
+            fct=self.fct, freqs=max(getattr(config.flow, "freqs", 2), 2))
 
     def stage_epochs(self):
         return [self.ae_epochs, self.config.training.n_epochs - self.ae_epochs]
@@ -130,7 +132,7 @@ class LatentFMModule(BaselineModule):
     def generate(self, n):
         return self.regenerate(self.flow.sample(n))
 
-    def extra_test_metrics(self, x, z):
+    def extra_test_metrics(self, x, z, y):
         return {"log_prior_z": self.flow.log_prob(z).mean().item()}
 
 
