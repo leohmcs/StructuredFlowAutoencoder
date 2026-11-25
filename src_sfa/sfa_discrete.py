@@ -64,11 +64,12 @@ class GumbelSoftmax(nn.Module):
 
 
 class GaussianMixtureComponent(nn.Module):
-    def __init__(self, K, z_features, x_features, freqs=2, hidden_dim=784, in_ch=3, mod_ch=8, **kwargs):
+    def __init__(self, K, z_features, x_features, freqs=2, hidden_dim=784, in_ch=3, mod_ch=8, sort_pi=True, **kwargs):
         super().__init__()
 
         self.K = K
         self.hidden_dim = hidden_dim
+        self.sort_pi = sort_pi
 
         self.embx = nn.Sequential(
             # nn.LayerNorm(x_features),
@@ -77,8 +78,10 @@ class GaussianMixtureComponent(nn.Module):
             # nn.Tanh()
         )
         
+        # Paper App. B.3: linearly map the K-dim logits to hidden_dim before
+        # concatenation; hyper's input size below assumes this projection.
         self.embpi = nn.Sequential(
-            # nn.Linear(K, hidden_dim),
+            nn.Linear(K, hidden_dim),
             # nn.Tanh()
             # nn.LayerNorm(hidden_dim)
         )
@@ -99,8 +102,9 @@ class GaussianMixtureComponent(nn.Module):
         temb = torch.cat((t.cos(), t.sin()), dim=-1)
         temb = temb.expand(*pi.shape[:-1], -1)
         xemb = self.embx(x)
-        pi_ordered, _ = torch.sort(pi, dim=-1, descending=True)  # [B, K]
-        piemb = self.embpi(pi_ordered)
+        if self.sort_pi:
+            pi, _ = torch.sort(pi, dim=-1, descending=True)  # [B, K]
+        piemb = self.embpi(pi)
         phi = self.hyper(torch.cat((temb, piemb, xemb), dim=-1))
 
         mu, sigma = phi.chunk(2, dim=-1)
@@ -298,7 +302,7 @@ class FlowMatchingLossMixture(nn.Module):
     def __init__(self, vt: nn.Module, Rt: nn.Module, rt, priorpi, priorz,
                  priory=None, k: int=None,
                  sig_min=1e-4, beta=0.1, alpha=0.1, tau=1., eps=1e-8,
-                 **kwargs):
+                 condition_on_xi=False, **kwargs):
         super().__init__()
 
         self.vt = vt
@@ -313,6 +317,7 @@ class FlowMatchingLossMixture(nn.Module):
         self.alpha = alpha
         self.tau = tau
         self.eps = eps
+        self.condition_on_xi = condition_on_xi
 
     def forward_var(self, pi, z):
         weighted_z_sum = torch.matmul(pi.T, z)
@@ -348,7 +353,9 @@ class FlowMatchingLossMixture(nn.Module):
 
         logitst, ztidx = self.Rt.rsample(xt, _t)
         pit = softmax(logitst/self.beta, dim=-1)
-        zt = self.rt.rsample(logitst, xt, _t)
+        # paper Eq. 8: z_t ~ q_t(z | x_t, xi_t) with xi_t ~ Gumbel-Softmax (condition_on_xi);
+        # the original code conditions on the logits
+        zt = self.rt.rsample(ztidx if self.condition_on_xi else logitst, xt, _t)
 
         vt = self.vt(_t, xt, zt)
         fm_loss = (vt - ut).square().mean(-1)

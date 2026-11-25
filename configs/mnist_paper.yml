@@ -1,0 +1,106 @@
+# MNIST config with the values the paper states (ICLR 2026, "Structured Flow Autoencoders").
+# Identical to mnist.yml except where marked:
+#   "PAPER:"    stated in the paper, or pinned down by a number the paper reports
+#   "INFERRED:" our reading of the paper where it is not explicit (each has an ablation in reproduce_mnist.py)
+# Everything unmarked is not stated in the paper and keeps the repository's value.
+training:
+  batch_size: 256 # 256 # 500
+  n_epochs: 201 # 100 # 1000 # 200 works for gmvae
+  n_iters: 20001
+  snapshot_freq: 10
+  snapshot_sampling: true
+  alpha: 0. # INFERRED: Eq. 6 has no regularization term (the code adds 0.01 * mean(z^2)); mnist.yml: 0.01. Ablation: sfa_alpha
+  alpha_mixture: 0.01 # repository value, for Mixture-SFA only: weight of the batch-entropy term, the only term that keeps more
+                      # than one mixture component in use. Eq. 8 does not show it, but the App. A remark is about KL-to-prior
+                      # terms, and without it q(xi|x) collapses. Ablation: mixture_alpha0
+  clipval: 1.
+  
+test:
+  begin_ckpt: 100
+  end_ckpt: 300000
+  batch_size: 500
+
+data:
+  n_classes: 10
+  dataset: "MNIST"
+  samplesize: 5000
+  test_samplesize: 300 # 500
+  size: 28
+  channel: 1
+  num_workers: 13
+  dtype: torch.float32
+  logit_transform: true
+  in_sample: true
+
+sample:
+  n_gen: 100
+
+model:
+  # sigma_begin: 50
+  # num_classes: 2
+  # ema: true
+  # ema_rate: 0.999
+  # spec_norm: false
+  # sigma_dist: geometric
+  # sigma_end: 0.01
+  # normalization: InstanceNorm++
+  # nonlinearity: elu
+  path: 'ot'
+  nllk: true
+  v: 0.1
+  ngf: 618 # INFERRED: SFA has 2.4M parameters (Sec. 4); width 618 with the code's 3 hidden layers and z_dim 64 gives 2,398,774,
+           # but other shapes also give 2.4M. mnist.yml: 800. Ablation: sfa_w800
+  mod_ch: 24
+  depth: 3
+  type: 'mlp'  # 'cnn' or 'mlp' for LLK architecture
+  fct: softplus # PAPER: softplus activation (App. B.3, written about the mixture models); mnist.yml: SiLU hardcoded in the runners
+  hidden_dim: 512  # intermediate MLP dim (when type=mlp)
+  freqs: 20
+  unet: false
+
+optim:
+  weight_decay: 0.0001
+  # optimizer: "Adam"
+  lr: 0.0005 # 0.0005 # try to use even smaller step size for the coupled ODE system
+  multiplier: .4 # 1.9 # 1.5 # 2.5 larger is more concentrated?
+  clip_value: 1.
+  # beta1: 0.9
+  # amsgrad: false
+  eps: 0.00000001
+
+flow:
+  z_dim: 64 # PAPER: 64-dimensional latent (App. B.3, Fig. 8 and 9 captions; Table 2's VAE Vendi 63.3 and SFA log p(z|x) 793.3
+            # are only possible with 64 dimensions); mnist.yml: 32
+  min_std: 1.e-6 # PAPER: floor of the Gaussian posterior's std. Table 2 reports log p(z|x) = 793.26 for SFA, the value of a
+                 # 64-dim posterior sitting on a 1e-6 floor (793.38); the code's 1e-5 caps it at 646. mnist.yml: 1e-5 hardcoded.
+                 # Ablation: sfa_floor1e5
+  pi_dim: 10 # 10
+  # n_trans: 40
+  n_comp: 10 # 10
+  mod_ch: 16
+  ngf: 618 # INFERRED: see model.ngf (this is the value the MNIST runners actually read)
+  mul: 2. # this is to decrease the impact of div estimate on the ODE solver - make it faster by scaling it down
+  fix_z: true # false # true # false # false # true
+  fix_pi: true # false
+  beta: 1. # higher promotes uniformity
+  condition_on_xi: true # INFERRED: z ~ q(z | x, xi) with xi ~ Gumbel-Softmax (Eq. 8, App. B.3); mnist.yml: conditions on sorted
+                        # logits. Ablation: mixture_logits
+  freqs: 4
+  depth: 1
+  cnn: false
+
+vae:  # VAE baseline (baselines/vae.py, not the authors' code); unset keys fall back to the code defaults
+  hidden: 630   # 2 hidden layers each in encoder and decoder -> 2,400,736 parameters, matched to SFA's 2.4M (Sec. 4 compares their cost)
+  depth: 2
+  beta: 1.      # plain VAE (Table 2 "VAE")
+  min_std: 1.e-5  # floor on the encoder/decoder standard deviations, as in the authors' GaussianPrior; not stated in the paper
+
+mixture_svae:  # Mixture-SVAE baseline (baselines/mixture_svae.py, not the authors' code)
+  hidden: 454   # 2 hidden layers in each of q(xi|x), q(z|x,xi), p(x|z) -> 2,510,054 parameters, matched to Mixture-SFA's 2,514,112 (the paper gives no size)
+  depth: 2
+  beta: 1.      # plain ELBO
+  temp: 1.      # Gumbel-Softmax temperature, same as Mixture-SFA (flow.beta)
+  prior_scale: 0.1  # fixed prior (Sec. 4): pi uniform, p(z|xi=k) = N(mu_k, I), mu_k ~ N(0, prior_scale^2 I) drawn once (seed 0).
+                    # Not stated in the paper. 1.0 and 0.3 collapse q(xi|x) onto a single component within 5 epochs; 0.1 is the
+                    # only tested value that keeps several components in use (chosen on training images, no labels).
+  min_std: 1.e-5   # decoder std floor, as for the VAE

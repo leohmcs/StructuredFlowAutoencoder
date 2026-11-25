@@ -1,0 +1,25 @@
+{
+  "checkpoint": "exp/logs/mnist_paper_mixture_svae/best-checkpoint-epoch=113-val_loss=-371.92.ckpt",
+  "checkpoint_kind": "best",
+  "epoch": 113,
+  "ssim": 0.5129129638671875,
+  "vendi_x": 35.01725425187767,
+  "log_p_x_given_z": 290.877806281166,
+  "log_p_z_given_x": -23.8375956764862,
+  "nmi": 0.0,
+  "ari": 0.0,
+  "soft_nmi": 0.8000000004624543,
+  "nmi_train": 0.0,
+  "ari_train": 0.0,
+  "soft_nmi_train": 0.8320525244976597,
+  "timings_s": {
+    "posterior": 0.0,
+    "posterior_predictive": 0.0,
+    "log_p_x_given_z": 0.0,
+    "test_plot_latent": 1.5,
+    "generate": 2.5,
+    "plot_latent": 2.3,
+    "test_generation_figure": 0.3,
+    "train_protocol": 5.7
+  }
+}

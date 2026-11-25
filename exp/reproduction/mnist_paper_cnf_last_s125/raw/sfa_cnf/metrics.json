@@ -1,0 +1,30 @@
+{
+  "checkpoint": "exp/logs/mnist_paper_cnf_posterior_s125/last.ckpt",
+  "checkpoint_kind": "last",
+  "epoch": 200,
+  "ssim": 0.1663662872314453,
+  "vendi_x": 20.739238755893545,
+  "log_p_x_given_z": -1179.8134936541799,
+  "log_p_z_given_x": -42.70516041159814,
+  "ssim_code_protocol": 0.17006208215441024,
+  "nmi": 0.16638378542008816,
+  "ari": 0.1032638159771435,
+  "vendi_z": 1.4983208050997154,
+  "nmi_ood": 0.26684837833816083,
+  "ari_ood": 0.12109956173481896,
+  "vendi_z_ood": 1.6452132773796688,
+  "nmi_train": 0.14807765959411492,
+  "ari_train": 0.09000283765044559,
+  "vendi_z_train": 1.5078147950864391,
+  "log_p_z_given_x_train": -42.32192093838009,
+  "timings_s": {
+    "posterior": 0.5,
+    "posterior_predictive": 2.1,
+    "log_p_x_given_z": 4.1,
+    "generate_img": 5.0,
+    "test_plot_latent": 2.0,
+    "test_plot_latent_ood": 12.6,
+    "fig3b": 0.6,
+    "train_protocol": 6.3
+  }
+}

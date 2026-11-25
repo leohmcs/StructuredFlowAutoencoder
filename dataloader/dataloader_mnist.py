@@ -78,7 +78,7 @@ class StratifiedSampler(Sampler):
         return self.samples_per_class * len(self.indices_per_class)
 
 
-def get_mnist(num_classes, dat_dir, num_per_class, num_per_class_test, download=False, logtran=True, split="mnist", replace=False):
+def get_mnist(num_classes, dat_dir, num_per_class, num_per_class_test, download=True, logtran=True, split="mnist", replace=False):
     if not logtran:
         tran = transforms.Compose([
             # transforms.Resize((14, 14)),  # Pad 2 pixels on each side (left, top, right, bottom)
@@ -109,7 +109,7 @@ def get_mnist(num_classes, dat_dir, num_per_class, num_per_class_test, download=
     return train_dataset, test_dataset, train_sampler, test_sampler
 
 
-def get_emnist(num_classes, dat_dir, num_per_class, num_per_class_test, split="mnist", download=False, logtran=True, replace=False):
+def get_emnist(num_classes, dat_dir, num_per_class, num_per_class_test, split="mnist", download=True, logtran=True, replace=False):
     if not logtran:
         tran = transforms.Compose([
             # transforms.Resize((14, 14)),  # Pad 2 pixels on each side (left, top, right, bottom)

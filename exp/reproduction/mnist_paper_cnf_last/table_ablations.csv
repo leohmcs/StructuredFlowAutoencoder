@@ -1,0 +1,3 @@
+Model,Run,Setting changed,SSIM (higher is better),NMI (higher is better),ARI (higher is better),softNMI (higher is better),Vendi (higher is better),log p(z|x) (higher is better),log p(x|z) (higher is better),checkpoint epoch
+w/CNF Posterior,sfa_cnf,none (paper config),0.160,0.172,0.093,–,1.483,-40.108,-1195.682,200 (last)
+w/CNF Posterior,sfa_cnf_alpha,alpha 0.01 (repository's z^2 penalty) instead of 0,0.217,0.080,0.030,–,1.661,205.525,-877.996,200 (last)

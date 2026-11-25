@@ -1,0 +1,5 @@
+Model,seeds (n),log p(x|z) (higher is better),log p(z|x) (higher is better),SSIM (higher is better),softNMI (higher is better),NMI (higher is better),ARI (higher is better),Vendi x (higher is better),NMI (train set) (higher is better),ARI (train set) (higher is better)
+Mixture-SFA,"3 (123, 124, 125)",-1281.182 ± 19.257,1087.872 ± 0.005,0.054 ± 0.004,0.635 ± 0.014,0.529 ± 0.057,0.391 ± 0.056,17.585 ± 1.261,0.509 ± 0.058,0.386 ± 0.059
+Mixture-SVAE,"3 (123, 124, 125)",317.198 ± 134.135,-24.789 ± 3.416,0.512 ± 0.010,0.672 ± 0.111,0.110 ± 0.096,0.034 ± 0.030,35.248 ± 0.647,0.118 ± 0.102,0.043 ± 0.037
+Mixture-SFA [mixture_alpha0: no batch-entropy term (alpha_mixture 0) instead of 0.01],"3 (123, 124, 125)",-1292.050 ± 11.118,1087.788 ± 0.089,0.054 ± 0.003,0.768 ± 0.014,0.205 ± 0.096,0.044 ± 0.041,17.619 ± 1.082,0.200 ± 0.077,0.042 ± 0.034
+Mixture-SFA [mixture_logits: z conditioned on the sorted logits (repository) instead of the xi sample],"3 (123, 124, 125)",-1248.315 ± 5.781,1087.878 ± 0.008,0.059 ± 0.002,0.597 ± 0.012,0.341 ± 0.058,0.199 ± 0.040,17.126 ± 0.909,0.325 ± 0.044,0.199 ± 0.037

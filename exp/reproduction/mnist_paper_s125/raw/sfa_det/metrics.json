@@ -1,0 +1,30 @@
+{
+  "checkpoint": "exp/logs/mnist_paper_deterministic_s125/best-checkpoint-epoch=186-val_loss=1.68.ckpt",
+  "checkpoint_kind": "best",
+  "epoch": 186,
+  "ssim": 0.5285120849609375,
+  "vendi_x": 15.904706043000193,
+  "log_p_x_given_z": -867.526228350312,
+  "log_p_z_given_x": null,
+  "ssim_code_protocol": 0.5187960215977261,
+  "nmi": 0.5205481097247754,
+  "ari": 0.3707916948712583,
+  "vendi_z": 16.42365179397357,
+  "nmi_ood": 0.3595750905861349,
+  "ari_ood": 0.1770743653398742,
+  "vendi_z_ood": 17.73684103139127,
+  "nmi_train": 0.49504066276136627,
+  "ari_train": 0.3673167285043002,
+  "vendi_z_train": 16.800317181432685,
+  "log_p_z_given_x_train": null,
+  "timings_s": {
+    "posterior": 0.0,
+    "posterior_predictive": 4.3,
+    "log_p_x_given_z": 6.4,
+    "generate_img": 4.5,
+    "test_plot_latent": 1.5,
+    "test_plot_latent_ood": 15.7,
+    "fig3b": 0.6,
+    "train_protocol": 5.3
+  }
+}

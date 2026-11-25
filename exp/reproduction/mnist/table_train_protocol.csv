@@ -1,0 +1,7 @@
+Model,Source,NMI (higher is better),ARI (higher is better),Vendi (higher is better),softNMI (higher is better),log p(z|x) (higher is better)
+SFA,paper,0.490,0.356,25.589,,793.262
+SFA,reproduced,0.137,0.065,4.366,,161.809
+w/CNF Posterior,paper,0.485,0.355,23.166,,356.141
+w/CNF Posterior,reproduced,0.125,0.068,1.287,,149.272
+Mixture-SFA,paper,0.489,0.332,,0.728,
+Mixture-SFA,reproduced,0.360,0.207,,0.672,

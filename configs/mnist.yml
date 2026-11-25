@@ -19,7 +19,7 @@ data:
   test_samplesize: 300 # 500
   size: 28
   channel: 1
-  num_workers: 0
+  num_workers: 13
   dtype: torch.float32
   logit_transform: true
   in_sample: true

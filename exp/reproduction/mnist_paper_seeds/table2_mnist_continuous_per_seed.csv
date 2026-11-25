@@ -1,0 +1,28 @@
+Model,seed,checkpoint epoch,log p(x|z) (higher is better),log p(z|x) (higher is better),Vendi (higher is better),SSIM (higher is better),NMI (higher is better),NMI (OOD) (higher is better),ARI (higher is better),ARI (OOD) (higher is better),Vendi x (higher is better),NMI (train set) (higher is better),ARI (train set) (higher is better),Vendi (train set) (higher is better)
+SFA,123,197 (best),-861.564,734.433,16.618,0.536,0.549,0.364,0.403,0.182,15.749,0.510,0.383,16.994
+SFA,124,180 (best),-862.324,731.431,16.793,0.541,0.519,0.377,0.355,0.190,15.723,0.489,0.358,17.139
+SFA,125,187 (best),-861.404,729.323,16.655,0.536,0.530,0.371,0.386,0.185,15.648,0.508,0.363,17.027
+w/CNF Posterior,123,187 (best),-1199.381,-40.084,1.488,0.160,0.175,0.264,0.095,0.119,17.112,0.160,0.092,1.496
+w/CNF Posterior,124,116 (best),-1177.928,-40.723,1.438,0.173,0.134,0.285,0.066,0.132,22.278,0.151,0.087,1.459
+w/CNF Posterior,125,190 (best),-1181.565,-42.690,1.499,0.167,0.164,0.260,0.103,0.112,20.864,0.146,0.093,1.508
+w/Deterministic,123,172 (best),-869.312,–,16.312,0.532,0.551,0.368,0.406,0.181,15.770,0.520,0.373,16.665
+w/Deterministic,124,194 (best),-866.145,–,16.765,0.534,0.546,0.372,0.394,0.189,15.771,0.518,0.393,17.122
+w/Deterministic,125,186 (best),-867.526,–,16.424,0.529,0.521,0.360,0.371,0.177,15.905,0.495,0.367,16.800
+VAE,123,105 (best),177.698,-0.602,14.630,0.497,0.398,0.218,0.246,0.090,36.173,0.392,0.263,15.142
+VAE,124,77 (best),280.654,-8.272,16.854,0.507,0.444,0.201,0.324,0.076,33.795,0.404,0.282,16.986
+VAE,125,69 (best),329.396,-25.040,10.198,0.505,0.434,0.222,0.295,0.087,33.802,0.419,0.310,10.186
+SFA [sfa_floor1e5: posterior std floor 1e-5 (published code) instead of 1e-6],123,197 (best),-859.283,628.057,16.636,0.536,0.552,0.378,0.405,0.187,15.694,0.512,0.388,17.011
+SFA [sfa_floor1e5: posterior std floor 1e-5 (published code) instead of 1e-6],124,180 (best),-863.294,626.794,16.841,0.541,0.542,0.374,0.373,0.187,15.775,0.513,0.383,17.179
+SFA [sfa_floor1e5: posterior std floor 1e-5 (published code) instead of 1e-6],125,187 (best),-860.918,625.813,16.640,0.539,0.515,0.373,0.358,0.184,15.798,0.512,0.365,17.006
+SFA [sfa_alpha: alpha 0.01 (repository's z^2 penalty) instead of 0],123,197 (best),-941.201,561.235,34.977,0.272,0.472,0.324,0.300,0.156,19.919,0.410,0.288,35.771
+SFA [sfa_alpha: alpha 0.01 (repository's z^2 penalty) instead of 0],124,180 (best),-936.226,566.050,33.546,0.267,0.414,0.319,0.271,0.146,21.765,0.398,0.263,34.616
+SFA [sfa_alpha: alpha 0.01 (repository's z^2 penalty) instead of 0],125,187 (best),-946.306,561.203,35.202,0.251,0.436,0.296,0.277,0.132,22.321,0.362,0.229,35.997
+SFA [sfa_w800: width 800 (repository; 3.35M parameters) instead of 618 (2.40M)],123,198 (best),-841.683,719.329,16.132,0.541,0.556,0.373,0.389,0.191,16.098,0.517,0.389,16.470
+SFA [sfa_w800: width 800 (repository; 3.35M parameters) instead of 618 (2.40M)],124,196 (best),-836.745,718.892,16.454,0.552,0.512,0.369,0.372,0.177,15.962,0.524,0.397,16.823
+SFA [sfa_w800: width 800 (repository; 3.35M parameters) instead of 618 (2.40M)],125,178 (best),-842.686,723.433,16.600,0.554,0.523,0.381,0.378,0.190,15.996,0.519,0.394,16.932
+"SFA [sfa_legacy: training loop as published (flat lr 5e-4, no effective clipping)]",123,197 (best),-831.050,613.490,18.726,0.487,0.537,0.377,0.400,0.188,17.040,0.517,0.390,19.118
+"SFA [sfa_legacy: training loop as published (flat lr 5e-4, no effective clipping)]",124,192 (best),-823.842,617.280,18.832,0.539,0.511,0.370,0.359,0.180,17.315,0.519,0.395,19.220
+"SFA [sfa_legacy: training loop as published (flat lr 5e-4, no effective clipping)]",125,188 (best),-829.597,620.985,18.840,0.510,0.560,0.373,0.429,0.186,17.456,0.519,0.391,19.249
+w/CNF Posterior [sfa_cnf_alpha: alpha 0.01 (repository's z^2 penalty) instead of 0],123,187 (best),-878.285,205.220,1.644,0.217,0.079,0.143,0.027,0.047,22.437,0.073,0.032,1.659
+w/CNF Posterior [sfa_cnf_alpha: alpha 0.01 (repository's z^2 penalty) instead of 0],124,116 (best),-893.784,170.893,2.257,0.203,0.081,0.159,0.040,0.057,21.804,0.077,0.039,2.291
+w/CNF Posterior [sfa_cnf_alpha: alpha 0.01 (repository's z^2 penalty) instead of 0],125,137 (best),-884.576,188.786,1.917,0.221,0.065,0.155,0.023,0.055,22.129,0.066,0.028,1.945

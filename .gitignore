@@ -1,9 +1,34 @@
-# Data
-data/
-data_test/
+# Data: only the compressed MNIST / EMNIST archives that the MNIST experiments read are tracked
+# (torchvision unpacks the MNIST ones on first use)
+data/*
+!data/MNIST/
+data/MNIST/*
+!data/MNIST/raw/
+data/MNIST/raw/*
+!data/MNIST/raw/*.gz
+!data/EMNIST/
+data/EMNIST/*
+!data/EMNIST/raw/
+data/EMNIST/raw/*
+!data/EMNIST/raw/emnist-balanced-train-*.gz
+data_test/*
+!data_test/MNIST/
+data_test/MNIST/*
+!data_test/MNIST/raw/
+data_test/MNIST/raw/*
+!data_test/MNIST/raw/*.gz
 
-# Experiment outputs
-exp/
+# Experiment outputs: run folders (checkpoints) stay local, the reproduction results are tracked.
+# raw/<variant>/ keeps only metrics.json; its figures are copies of the ones one level up.
+exp/*
+!exp/reproduction/
+exp/reproduction/*/raw/*/*
+!exp/reproduction/*/raw/*/metrics.json
+# final-checkpoint evaluations of the CNF runs: only the metrics and the two tables that have them
+exp/reproduction/mnist_paper_cnf_last*/*
+!exp/reproduction/mnist_paper_cnf_last*/raw/
+!exp/reproduction/mnist_paper_cnf_last*/table2_mnist_continuous.*
+!exp/reproduction/mnist_paper_cnf_last*/table_ablations.*
 lightning_logs/
 
 # Python
